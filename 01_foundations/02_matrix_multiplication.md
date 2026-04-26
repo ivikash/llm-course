@@ -102,6 +102,46 @@ C = A @ B                     # shape (32, 10, 5)
 
 Each of the 32 items in the batch is matmul'd independently. This is how attention gets computed per-head.
 
+## Visualize this
+
+**Matmul as "each row dotted with each column"**:
+
+```
+   A  (m × k)                B  (k × n)                  C  (m × n)
+                            ┌─┬─┬─┐
+                            │ │ │ │
+                            │ │ │ │
+   ┌─────┐                  │ │ │ │                    ┌─┬─┬─┐
+   │ ━━━━┣━━━━━━━━━━━━━━━━▶ │ │ │ │     produces       │●│ │ │  <- C[0,0]
+   │     │                  │ │ │ │                    │ │ │ │     = row 0 of A
+   │     │                  │ │ │ │                    │ │ │ │       · col 0 of B
+   └─────┘                  └─┴─┴─┘                    └─┴─┴─┘
+                             ↑ ↑ ↑
+                             │ │ │
+                             column 0 of B
+```
+
+Every cell in C is one dot product. An (m,k)×(k,n) matmul is `m × n` dot products.
+
+**Interactive**: http://matrixmultiplication.xyz - paste two matrices, watch them multiply step by step.
+
+**Why GPUs love matmul**:
+
+```
+  CPU (8 cores):                     GPU (10,000+ cores):
+  ┌───┬───┬───┬───┐                  ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐
+  │ 1 │ 2 │ 3 │ 4 │                  │1│2│3│4│5│6│7│8│9│0│1│ ...
+  ├───┼───┼───┼───┤                  ├─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┤
+  │ 5 │ 6 │ 7 │ 8 │                  │2│3│4│5│6│7│8│9│0│1│2│ ...
+  └───┴───┴───┴───┘                  └─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘
+
+  8 multiplications at once           10,000+ at once
+```
+
+GPU ≈ 1000× faster than CPU for matmul. That's why every LLM lives on GPUs.
+
+**Watch a real matmul**: in Module 2 you'll run `nn.Linear(10, 5)` on real tensors. Under the hood: one matmul. Literally the entire GPT-2 is ~48 of these matmuls per forward pass.
+
 ## Exercises
 
 1. Compute by hand: if `A.shape == (4, 6)` and `B.shape == (6, 3)`, what's the shape of `A @ B`? How many multiplications total?

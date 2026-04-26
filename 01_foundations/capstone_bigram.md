@@ -123,6 +123,46 @@ GPT-2's forward: embed, add position, pass through N transformer blocks, final n
 
 **Same framing. Much richer mechanism.** Module 3 is just expanding each of those inner lines.
 
+## Visualize this
+
+**Watch your model learn, in real time**:
+
+```python
+# After training, plot loss curve:
+import matplotlib.pyplot as plt
+losses_history = []  # collect loss.item() every 10 steps
+# ...run training, appending to losses_history...
+plt.plot(losses_history)
+plt.xlabel("step"); plt.ylabel("loss")
+plt.savefig("bigram_loss.png")
+```
+
+Expected: loss drops sharply in first 20 steps, then plateaus near ~2.48. That's the model learning the bigram distribution.
+
+**Visualize what the model learned** (after training):
+
+```python
+# W has shape (vocab_size, vocab_size)
+# Each row is logits for "what comes next given row-index char"
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
+probs = F.softmax(W.detach(), dim=-1)
+plt.figure(figsize=(10, 10))
+plt.imshow(probs.numpy(), cmap='viridis', aspect='auto')
+plt.xticks(range(vocab_size), chars, rotation=90, fontsize=6)
+plt.yticks(range(vocab_size), chars, fontsize=6)
+plt.xlabel("next char"); plt.ylabel("current char")
+plt.title("Learned transition probabilities (neural bigram)")
+plt.colorbar()
+plt.tight_layout()
+plt.savefig("neural_bigram_probs.png")
+```
+
+Compare to the heatmap from the counting bigram in Module 0. **They should look nearly identical.** That's the point: gradient descent + cross-entropy converges to the same answer as counting. You've proven the claim empirically.
+
+**Watch it train visually**: https://playground.tensorflow.org/ - same concept (gradient descent on a simple model) but with a visual network. Watch neurons activate, loss decrease.
+
 ## Challenge exercises
 
 1. **Extend to trigram.** Make `W` of shape `(vocab_size, vocab_size, vocab_size)` so the model looks at 2 previous chars. Watch loss drop further but training get slower and memory balloon. This demonstrates why brute-force context is doomed.

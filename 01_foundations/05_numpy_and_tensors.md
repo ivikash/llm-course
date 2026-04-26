@@ -171,6 +171,46 @@ Open `~/workspace/nanoGPT/model.py`. Spend 10 minutes skimming. You won't unders
 
 You're starting to read this code!
 
+## Visualize this
+
+**Shape tracking - the mental model that prevents 90% of tensor bugs**:
+
+```
+  x = torch.randn(4, 5)          x.shape == torch.Size([4, 5])
+  x.T              →  (5, 4)
+  x.sum(dim=0)     →  (5,)       (collapsed dim 0)
+  x.sum(dim=1)     →  (4,)       (collapsed dim 1)
+  x.sum()          →  ()         (scalar)
+  x.unsqueeze(0)   →  (1, 4, 5)  (added dim at position 0)
+  x.view(20)       →  (20,)      (flattened)
+  x.view(2, 10)    →  (2, 10)    (reshaped, total elements conserved)
+  x[None, :, :]    →  (1, 4, 5)  (like unsqueeze)
+  x[:, :, None]    →  (4, 5, 1)
+```
+
+**A trick that saves hours**: print shapes everywhere.
+
+```python
+def dbg(x, name):
+    print(f"{name}: {tuple(x.shape)} dtype={x.dtype}")
+
+dbg(x, "input")
+dbg(layer(x), "after linear")
+dbg(attn(x), "after attention")
+```
+
+When you read nanoGPT's `model.py` and see confusing `.view(B, T, n_head, C//n_head).transpose(1, 2)` - put `print(x.shape)` between lines and watch what happens. Works every time.
+
+**Einops alternative** (cleaner shape manipulation):
+
+```python
+from einops import rearrange
+# instead of: x.view(B, T, n_head, head_dim).transpose(1, 2)
+# you can write: rearrange(x, 'b t (h d) -> b h t d', h=n_head)
+```
+
+Many modern codebases use einops. nanoGPT doesn't but nanochat does in places.
+
 ## Exercises
 
 1. Create a random tensor of shape `(4, 5)`, compute its mean along each column (dim=0), then along each row (dim=1). Check the output shapes.

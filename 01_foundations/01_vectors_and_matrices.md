@@ -91,6 +91,52 @@ That kind of relationship *emerges* from training. You don't program it. This is
 
 In `nanoGPT/model.py`, when we say "the embedding dimension `n_embd` is 768", we mean every token is a 768-length vector inside the model. When we say "4 attention heads, head_dim 64", we mean each head works with 64-length vector pieces (4 x 64 = 256... wait, that's not 768 - let me redo: typical setup is n_embd=768, n_head=12, head_dim=64, since 12 x 64 = 768). Shapes, shapes, shapes.
 
+## Visualize this
+
+**Tensors as shapes**:
+
+```
+scalar (0-D)        vector (1-D)           matrix (2-D)
+shape: ()           shape: (3,)            shape: (2, 3)
+
+  [7]               [1, 2, 3]              [[1, 2, 3],
+                                            [4, 5, 6]]
+
+●                   ● ● ●                  ● ● ●
+                                           ● ● ●
+
+
+3-D tensor                4-D tensor (batch of 3-D)
+shape: (2, 3, 4)          shape: (batch, n_head, T, head_dim)
+
+ ▮▮▮▮                     (hard to draw - but this is what
+ ▮▮▮▮       \             attention keeps in memory)
+ ▮▮▮▮        \
+  ▮▮▮▮        \
+  ▮▮▮▮          depth
+  ▮▮▮▮
+```
+
+**Dot product as alignment** (critical intuition for attention):
+
+```
+  Vector A:  →→→→
+  Vector B:  →→→→      (same direction)
+  A·B: LARGE positive
+
+  Vector A:  →→→→
+  Vector B:  ↑↑↑↑      (perpendicular)
+  A·B: ~0
+
+  Vector A:  →→→→
+  Vector B:  ←←←←      (opposite)
+  A·B: LARGE negative
+```
+
+When attention asks "how much does token i care about token j?" it's computing a dot product between i's "query vector" and j's "key vector". High dot product = they're aligned = attend more. Keep this picture ready for Module 3.
+
+**Play with it**: open https://www.geogebra.org/m/kv2zjeet to interactively rotate two vectors and see their dot product change.
+
 ## Exercises
 
 1. Create a (4, 5) tensor filled with zeros, then fill the 3rd row with 1s. Print its shape.

@@ -91,6 +91,50 @@ print(w)  # tensor([3.16]) - we moved toward the minimum
 
 Run that. Change the initial `w`. Loop it 100 times. Watch the loss go down.
 
+## Visualize this
+
+**Gradient descent is walking downhill**:
+
+```
+  loss
+    │                     ● start (random weights)
+    │                    ╱
+    │                   ╱
+    │                  ╱  ← each step: -lr × gradient
+    │                 ╱
+    │                ╱
+    │               ╱
+    │              ●●●  current position
+    │                ╲
+    │                 ╲
+    │                  ╲
+    │                   ●●  minimum (trained model)
+    │
+    └─────────────────────────────────► weight value
+```
+
+The slope (the derivative) at each point tells you which direction is "downhill." Gradient descent follows it.
+
+**Watch this in real time**: run the exercise snippet below. Every step prints `w` and `loss`. You'll see loss drop smoothly as `w` walks to its optimal value.
+
+**3Blue1Brown's visual explanation**: https://www.youtube.com/watch?v=IHZwWFHWa-w (15 min) - literally shows a ball rolling down a loss surface. Watch once, remember forever.
+
+**Learning rate tuning intuition**:
+
+```
+  Too small lr:                Just right:              Too big lr:
+  ●                            ●                        ●
+   ●                            ●                         ●
+    ●                            ●                    ●
+     ●                            ●                       ●
+      ●                            ●                  ●
+       ●                            ●                        ●
+        ●                            ●●●              ●
+  (crawls, never reaches)      (converges fast)       (bounces, diverges)
+```
+
+We'll return to this picture in Module 4 Lesson 5 (Learning Rate Schedules).
+
 ## Exercise - do this one, it teaches you a lot
 
 Save as `~/workspace/llm-course/exercises/02_gradient_descent.py`:

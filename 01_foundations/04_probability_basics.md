@@ -119,6 +119,50 @@ Sometimes people report perplexity, sometimes cross-entropy. They're the same in
 
 nanochat uses a related metric called **bpb (bits per byte)** which is cross-entropy normalized differently so it's comparable across different tokenizer vocab sizes.
 
+## Visualize this
+
+**Softmax turns anything into a valid probability distribution**:
+
+```python
+# run this and look
+import torch, torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+logits = torch.tensor([1.0, 2.0, 3.0])
+for T in [0.1, 0.5, 1.0, 2.0, 5.0]:
+    probs = F.softmax(logits / T, dim=-1)
+    plt.bar([f"T={T}\n{p:.2f}" for p in probs.tolist()], probs.tolist())
+    plt.title(f"Temperature {T}")
+    plt.savefig(f"softmax_T{T}.png")
+    plt.clf()
+```
+
+What you'll see:
+- `T=0.1`: almost all probability on the highest logit (deterministic).
+- `T=1`: smooth distribution - one answer favored but others still likely.
+- `T=5`: nearly uniform - outputs become random.
+
+This is literally the "temperature" slider in ChatGPT and every LLM. Now you know what it does.
+
+**Cross-entropy as "surprise"**:
+
+```
+  Probability model assigned to correct answer:
+  1.0 ────────────────── 0 loss (not surprised at all, perfect)
+  0.5 ────────────────── 0.69 loss
+  0.1 ────────────────── 2.30 loss
+  0.01 ───────────────── 4.60 loss
+  0.001 ──────────────── 6.91 loss (very surprised, very wrong)
+```
+
+Cross-entropy = `-log(probability)`. Low probability on truth = high surprise = high loss.
+
+Training minimizes surprise. Every training step, the model becomes *slightly less surprised by reality*.
+
+**Interactive**: https://www.desmos.com/calculator/dzvxqldizw - play with softmax temperature live.
+
+**3Blue1Brown's chapter on softmax**: https://www.youtube.com/watch?v=eMlx5fFNoYc#t=22m - watch that specific timestamp (22 min) for a beautiful 5-minute explanation.
+
 ## Exercises
 
 1. By hand (or Python), compute the softmax of `[0, 0, 0]`. (Should be `[1/3, 1/3, 1/3]`, uniform.)
