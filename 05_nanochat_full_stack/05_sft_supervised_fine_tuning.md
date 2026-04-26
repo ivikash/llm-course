@@ -132,6 +132,110 @@ Base → SFT → RL via GRPO (optional, on verifiable rewards)
 
 Skipping the RM stage because GRPO works on problems where you can automatically score correctness (math, code). We cover this in the next lesson.
 
+## Visualize this
+
+**Before and after SFT, illustrated**:
+
+```
+  BEFORE SFT (base model):
+  User: What is 2+2?
+  Model: What is 2+2? What is 3+3? What is the pattern of these questions?
+         In this quiz, each question tests arithmetic. Let us see...
+       ↑
+       Continues the text like a forum post. Never answers.
+
+  AFTER SFT:
+  User: What is 2+2?
+  Model: 4.
+       ↑
+       Acts like an assistant. Follows instructions.
+```
+
+The model didn't gain knowledge; it learned the social role of an assistant.
+
+**The chat template, tokenized**:
+
+```
+  Raw conversation (Python list):
+  [
+    {"role": "user", "content": "What is 2+2?"},
+    {"role": "assistant", "content": "4."}
+  ]
+
+  Rendered as a string (via tokenizer.render_chat):
+  <|bos|><|user_start|>What is 2+2?<|user_end|><|assistant_start|>4.<|assistant_end|>
+
+  Tokenized (hypothetical IDs):
+  [32000, 32001, 43, 22, 18, 97, 32002, 32003, 19, 89, 32004]
+    │     │      ─────────────── │    │      ────── │
+    bos   user   "What is 2+2?"  end  assist "4."    end
+          start                        start
+
+  Shape: (1, 11)
+```
+
+**The loss mask is the key idea**:
+
+```
+  Position: 0     1     2   3   4   5   6     7     8  9   10
+  Token:    bos   us    W   i   s   ?   ue    as    4   .   ae
+                                                    ^   ^   ^
+                                                    │   │   │
+            Only here does loss count:  ─────────────────┴───
+                                                    (assistant tokens)
+
+  loss_mask = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+
+  Training:
+    F.cross_entropy(logits, targets, reduction='none')  → per-token losses
+    losses * loss_mask                                   → zero out non-assistant
+    .sum() / loss_mask.sum()                             → average over masked
+```
+
+This mask is why the model doesn't learn to imitate user text.
+
+**SFT hyperparameters vs pretraining**:
+
+```
+                          Pretraining          SFT
+  ─────────────────────── ─────────────────── ──────────────────
+  Data size               billions of tokens  ~millions of tokens
+  Epochs                  usually < 1         1-3
+  Learning rate           ~5e-4 to 1e-3       ~5e-5 to 1e-4 (10× lower)
+  Duration                hours to weeks      minutes to hours
+  Batch size              big (1M+ tokens)    smaller (100K-500K)
+  Loss on                 every token         only assistant tokens
+  Goal                    learn language      learn chat behavior
+```
+
+**Expected SFT loss curve**:
+
+```
+  loss
+   │●                  (SFT loss starts at ~3-4 from base model)
+   │ ●
+   │  ●●
+   │    ●●●
+   │       ●●●●
+   │           ●●●●●●                (drops steadily)
+   │                 ●●●●●●●●●●●●     (plateaus around 1-2)
+   │
+   └─────────────────────────────── step
+
+  Shorter than pretraining. Plateau around 1-2 (vs 2-3 for pretrain val).
+```
+
+**Sample quality progression**:
+
+```
+  Step 0 (base model):   "Why is the sky blue? Why is the ocean ... "
+  Step 500:              "Why is the sky blue? The sky is blue because of scattering..."
+  Step 2000:             "The sky appears blue due to Rayleigh scattering:
+                          sunlight entering the atmosphere ..." (clean answer)
+```
+
+Watch the model learn to end its responses cleanly at `<|assistant_end|>` - often this is the last thing to click.
+
 ## Exercises
 
 1. Read `scripts/chat_sft.py` top to bottom. Compare structure to `base_train.py`. What's different?

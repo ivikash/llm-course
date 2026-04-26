@@ -155,6 +155,121 @@ Both are excellent. nanoGPT is your first read. nanochat is your second.
 10. `10_speedrun_end_to_end.md` → running the whole thing.
 11. `capstone_train_and_talk.md` → you train your own chatbot.
 
+## Visualize this
+
+**The nanochat pipeline, one picture**:
+
+```
+   ┌────────────────────────────────────────────────────────────┐
+   │                 nanochat speedrun pipeline                  │
+   │                                                             │
+   │   RAW DATA (web text shards)                                │
+   │         │                                                   │
+   │         ▼                                                   │
+   │   [Stage 1] Tokenizer training  (scripts/tok_train.py)      │
+   │         │                                                   │
+   │         ▼  tokenizer.json (32768 tokens, BPE)              │
+   │   [Stage 2] Pretraining       (scripts/base_train.py)       │
+   │         │        ~2h on 8xH100, 4e19 FLOPs                  │
+   │         ▼                                                   │
+   │   base model (can complete text, can't chat)                │
+   │         │                                                   │
+   │         ▼                                                   │
+   │   [Stage 3] SFT        (scripts/chat_sft.py)                │
+   │         │       ~20 min on SmolTalk + identity convos       │
+   │         ▼                                                   │
+   │   chat model (follows instructions, has personality)        │
+   │         │                                                   │
+   │         ▼                                                   │
+   │   [Stage 4] (optional) RL  (scripts/chat_rl.py)            │
+   │         │       ~2h on GSM8K, via GRPO                      │
+   │         ▼                                                   │
+   │   enhanced chat model (better at math/code)                 │
+   │         │                                                   │
+   │         ▼                                                   │
+   │   [Stage 5] Serve     (scripts/chat_web.py + ui.html)       │
+   │                                                             │
+   └────────────────────────────────────────────────────────────┘
+```
+
+Every stage is a separate script. Output of each stage = input to the next.
+
+**Where each file fits in**:
+
+```
+   nanochat/
+   ├─ nanochat/               (library)
+   │  ├─ gpt.py              ← model architecture (like nanoGPT/model.py + RoPE + SwiGLU)
+   │  ├─ tokenizer.py        ← BPE wrapper + chat templates
+   │  ├─ dataset.py          ← shard download/management
+   │  ├─ dataloader.py       ← distributed streaming batches
+   │  ├─ engine.py           ← inference with KV cache
+   │  ├─ flash_attention.py  ← flash attention wrapper
+   │  ├─ fp8.py              ← custom fp8 matmul
+   │  ├─ optim.py            ← Muon + AdamW
+   │  ├─ checkpoint_manager.py ← save/load with atomic writes
+   │  ├─ loss_eval.py        ← val BPB
+   │  ├─ core_eval.py        ← CORE benchmark
+   │  ├─ execution.py        ← Python sandbox for code eval
+   │  └─ report.py           ← report generation
+   │
+   ├─ scripts/                (entry points)
+   │  ├─ tok_train.py        ← train tokenizer
+   │  ├─ tok_eval.py         ← evaluate tokenizer
+   │  ├─ base_train.py       ← pretraining (biggest script)
+   │  ├─ base_eval.py        ← base eval (CORE, bpb)
+   │  ├─ chat_sft.py         ← supervised fine-tuning
+   │  ├─ chat_rl.py          ← reinforcement learning
+   │  ├─ chat_eval.py        ← chat benchmarks
+   │  ├─ chat_cli.py         ← terminal chat
+   │  └─ chat_web.py         ← web UI server
+   │
+   ├─ tasks/                  (evaluation tasks)
+   │  ├─ mmlu.py, arc.py, humaneval.py, gsm8k.py, ...
+   │
+   └─ runs/                   (bash scripts for reference runs)
+      └─ speedrun.sh         ← the canonical pipeline
+```
+
+**Model sizes and the "depth dial"**:
+
+```
+  --depth N produces:
+  depth 8   → ~50M params   (runs on a laptop)
+  depth 12  → ~170M params  (GPT-1 size)
+  depth 16  → ~430M params
+  depth 20  → ~830M params
+  depth 24  → ~1.5B params  (GPT-2 size, speedrun default)
+  depth 26  → ~1.9B params  (Jan 2026 leaderboard)
+  depth 40  → ~7B params    (Llama-1 size)
+
+  n_embd = 64 × depth   (width scales with depth)
+  n_head = depth // 2
+```
+
+**Compare nanoGPT vs nanochat at-a-glance**:
+
+```
+                              nanoGPT          nanochat
+  Scope:                      pretrain only    full pipeline
+  Lines of model code:        ~400             ~700
+  Architecture:               GPT-2 vanilla    Llama-style
+  Positional encoding:        learned          RoPE
+  Normalization:              LayerNorm        RMSNorm
+  MLP activation:             GELU             SwiGLU
+  Attention:                  MHA              GQA
+  Bias on Linears:            yes              no
+  Tokenizer:                  tiktoken GPT-2   trained from scratch
+  Chat format:                none             first-class
+  Fine-tuning:                no               SFT + RL
+  Inference engine:           slow, no KV cache fast with KV cache
+  Web UI:                     no               yes (ui.html)
+  Precision:                  bf16             bf16 + fp8
+  One-knob complexity:        no               yes (--depth)
+```
+
+nanoGPT teaches the idea. nanochat teaches the production system.
+
 ## Exercises
 
 1. `tree ~/workspace/nanochat` (or `ls -R`). Match the output to my layout above. Note what's extra or different.

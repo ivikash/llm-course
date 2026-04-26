@@ -181,6 +181,128 @@ The key idea behind nanochat's leaderboard:
 
 This is a research methodology worth adopting for your own work: find a fixed benchmark, try to beat it with less compute, publish what worked.
 
+## Visualize this
+
+**The speedrun timeline on 8xH100**:
+
+```
+  time   stage                             output
+  ─────  ───────────────────────────────  ──────────────────────────
+  0:00   bash runs/speedrun.sh starts
+  0:05   uv creates venv, installs deps    .venv/
+  0:10   starts downloading 8 data shards   ~/.cache/nanochat/data/
+  0:10   starts bg: downloading 170 shards  (async)
+  0:15   tok_train runs (~10 min)           tokenizer.json
+  0:25   tok_eval runs                      report/tokenizer.md
+  0:25   wait for bg download to finish...
+  0:30   bg download done (170 shards)
+  0:30   ╔═════════════════════════════════════════
+         ║ base_train.py runs (pretraining)
+         ║  step 0:      loss 10.4  (random)
+         ║  step 100:    loss 8.2
+         ║  step 1000:   loss 5.1
+         ║  step 10000:  loss 3.2
+         ║  step 50000:  loss 2.5
+         ║  step 100000: loss 2.1  ← GPT-2 level
+         ║  ~2 hours total on 8xH100 fp8
+         ╚═════════════════════════════════════════
+  2:30   base_train done                    checkpoint: base/
+  2:30   base_eval.py runs
+  2:45   base_eval done                     report/base_eval.md
+                                              val_bpb: 0.75
+                                              CORE: 0.258
+  2:45   chat_sft.py runs (~20 min)
+  3:05   chat_sft done                      checkpoint: sft/
+  3:05   chat_eval.py runs
+  3:35   chat_eval done                     report/chat_eval.md
+                                              MMLU: 0.33, ARC: 0.50,
+                                              HumanEval: 0.06, GSM8K: 0.10
+  3:35   nanochat.report generate           report.md (full)
+  3:40   DONE.
+
+  Total: ~3.5 hours on 8xH100. Cost: ~$80 (on-demand) or ~$25 (spot).
+```
+
+That's the entire lifecycle: bytes-of-text → chatbot-you-can-talk-to.
+
+**What the report.md looks like at the end**:
+
+```
+  report.md (auto-generated)
+  ──────────────────────────
+  # nanochat run: d24 speedrun
+
+  ## System
+  - 8x H100, CUDA 12.2
+  - commit: a67eba3
+  - start: 2026-04-26 18:00
+  - end:   2026-04-26 21:35
+  - total wall time: 3h 35m
+
+  ## Dataset
+  - shards used: 170 of 6542
+  - total tokens trained: 4e10
+
+  ## Tokenizer
+  - vocab: 32768
+  - compression (bytes per token): 4.52
+  - train time: 9 min
+
+  ## Base training
+  - final train loss: 2.11
+  - final val bpb: 0.748
+  - CORE: 0.258
+  - MFU: 52%
+  - total FLOPs: 4.2e19
+
+  [loss curves, sample generations, etc.]
+
+  ## SFT
+  - final sft loss: 1.34
+  - MMLU: 0.334
+  - ARC-Easy: 0.512
+  - GSM8K: 0.103
+  - HumanEval: 0.056
+
+  [sample conversations]
+```
+
+A complete record of what happened. Reproducible. Shareable.
+
+**Checkpoint directory at the end**:
+
+```
+  ~/.cache/nanochat/
+  ├── data/               (170 tokenized shards, ~17 GB)
+  ├── tokenizer/
+  │   └── tokenizer.json  (~5 MB)
+  ├── checkpoints/
+  │   ├── base/
+  │   │   └── step_100000/
+  │   │       ├── model.safetensors   (~3 GB bf16 for d24)
+  │   │       ├── optimizer.pt
+  │   │       └── config.json
+  │   └── sft/
+  │       └── step_2000/
+  │           ├── model.safetensors
+  │           └── config.json
+  └── report/
+      ├── base_train.md
+      ├── base_eval.md
+      ├── chat_sft.md
+      ├── chat_eval.md
+      └── report.md       ← the concatenated summary
+```
+
+**Variants of the run (other scripts)**:
+
+```
+  runs/speedrun.sh       → 8xH100, ~3.5h, GPT-2 capability, recommended
+  runs/miniseries.sh     → sweep depths 8,12,16,20,24  (scaling study)
+  runs/scaling_laws.sh   → many small runs for scaling-law fits
+  runs/runcpu.sh         → tiny version that runs on a CPU laptop (for learning)
+```
+
 ## Exercises
 
 1. Read `runs/speedrun.sh` top to bottom. Every line. Match each to a lesson in Module 5.

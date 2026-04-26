@@ -122,6 +122,126 @@ Much simpler: a Python REPL-style loop that uses the same Engine. Good for debug
 
 The big insight: **a chat interface is simple**. The hard part is training the model. Once you have a good model, wrapping it in a UI is a weekend project.
 
+## Visualize this
+
+**The full request lifecycle**:
+
+```
+  User                    Browser            Server                 Model
+  ────                    ───────            ──────                 ─────
+  types "Hi"              display            listening
+      │                      │                  │
+      │ sends msg             │                  │
+      ├──────────────────────▶│                  │
+      │                       │ WebSocket        │
+      │                       ├─────────────────▶│
+      │                       │                  │
+      │                       │                  │ tokenize
+      │                       │                  │ append to convo
+      │                       │                  │ engine.prefill(tokens)
+      │                       │                  │      │
+      │                       │                  │      ▼
+      │                       │                  │    Model  (~50ms)
+      │                       │                  │
+      │                       │                  │ for token in generate():
+      │                       │                  │   stream over WS
+      │                       │                  ├────▶│
+      │                       │◀──── token: "H" ──│    │
+      │                       │                   │    │
+      │ sees "H"               │ DOM update        │    │
+      │                       │◀──── token: "i" ──│    │
+      │                       │                   │    │
+      │ sees "Hi"              │ DOM update        │    │
+      │                       │◀──── token: "!"──│    │
+      │ sees "Hi!"             │                   │    │
+      │                       │◀──── token: EOT ──│    │
+      │                       │                   │    │
+      │                       │  "done" signal    │    │
+      │                       │◀──────────────────│    │
+      │ cursor idle             │                  │    │
+```
+
+Streaming tokens = responsive UX. User sees first letter in ~200ms.
+
+**The server in 80 lines of Python**:
+
+```python
+# scripts/chat_web.py (simplified)
+from aiohttp import web
+from nanochat.engine import Engine
+import nanochat.tokenizer as tok
+
+engine = Engine.from_checkpoint("sft/latest")  # loads once at startup
+
+async def websocket_handler(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    conv = []
+    async for msg in ws:
+        data = msg.json()
+        conv.append({"role": "user", "content": data["content"]})
+        tokens = tok.render_chat(conv + [{"role": "assistant", "content": ""}])
+        engine.prefill(tokens)
+        assistant_text = ""
+        for _ in range(800):
+            token = engine.decode_step_and_sample(temperature=0.8)
+            if token == tok.EOT_TOKEN: break
+            text = tok.decode([token])
+            assistant_text += text
+            await ws.send_json({"token": text})
+        conv.append({"role": "assistant", "content": assistant_text})
+        await ws.send_json({"done": True})
+    return ws
+
+app = web.Application()
+app.router.add_get("/ws", websocket_handler)
+app.router.add_static("/", path=".")   # serves ui.html
+web.run_app(app, port=8000)
+```
+
+That's a ChatGPT-like interface in ~80 lines. The hard part was training the model; serving is easy.
+
+**What ui.html does** (client side):
+
+```
+  index.html
+    │
+    ▼
+  <div id="messages">  ← chat bubbles rendered here
+  <input>              ← user types here
+    │
+    ▼
+  JavaScript:
+    1. connect to /ws
+    2. on submit: send {"content": inputText}
+    3. on message("token"): append to current assistant bubble
+    4. on message("done"): cursor-blink off, allow new input
+```
+
+~500 lines of plain HTML/CSS/JS. No React, no Vue, no build step. Open `nanochat/ui.html` and read it.
+
+**Latency breakdown**:
+
+```
+  user hits Enter
+        │
+    ~10 ms → WebSocket message hits server
+        │
+    ~50 ms → tokenize conversation, render chat template
+        │
+    ~100 ms → engine.prefill (process full prompt)
+        │
+    ~30 ms → first token sampled, sent to browser
+        │
+    ~10 ms → browser renders letter
+        │
+  TOTAL: ~200 ms to first letter
+        │
+  then ~30 ms per subsequent token (decode)
+```
+
+Fast enough to feel interactive.
+
 ## Exercises
 
 1. Train a small nanochat model (even on CPU, even tiny). Launch `chat_web`. Have a conversation.

@@ -172,6 +172,132 @@ Large labs run:
 
 Public benchmarks catch gross failures. Real product quality is measured elsewhere.
 
+## Visualize this
+
+**Benchmark scale intuition**:
+
+```
+  MMLU (57 subjects, 4-choice):
+  ─────────────────────────────
+  random              25%
+  GPT-2 (124M)         ~27%   ← barely above random
+  GPT-3               44%
+  GPT-2 XL (1.5B)      ~30%
+  Llama-2 7B           46%
+  Llama-2 70B          69%
+  GPT-4                86%
+  human expert         ~90%
+
+  nanochat d24 (1.5B)  ~30-40%
+
+  HumanEval (code, pass@1):
+  ─────────────────────────
+  random              0%
+  GPT-2                ~0%     ← barely any Python in training
+  Codex               ~29%
+  Llama-2 70B          31%
+  GPT-4                67%
+  Claude 3.5 Sonnet    ~92%
+
+  nanochat d24         ~5-15%
+
+  GSM8K (grade-school math, chain-of-thought):
+  ─────────────────────────────────────────────
+  random              0%
+  GPT-3                ~15%
+  GPT-3 + CoT           ~57%
+  GPT-4                92%
+
+  nanochat SFT         ~10-15%
+  nanochat post-RL     ~40-50%   ← RL on GSM8K makes a big difference
+```
+
+**What your model's CORE number means**:
+
+```
+  CORE score (DCLM paper aggregate, 0 to 1 scale):
+
+  0.00 ─ random baseline
+  0.15 ─ early language models
+  0.22 ─ GPT-2 small territory
+  0.25 ─ GPT-2 XL territory  ← speedrun target
+  0.30 ─ Mistral-7B level
+  0.45 ─ Llama-2 70B level
+  0.60 ─ GPT-4 level
+
+  nanochat's goal: beat 0.25 in as little wall time as possible.
+```
+
+**How multiple-choice eval actually works**:
+
+```
+  Question: "What is the capital of France?"
+  Choices: A) Madrid  B) Paris  C) Rome  D) London
+
+  Method 1: ask the model to output the letter
+    Prompt: "Question: ... Answer: "
+    Model generates: "B"
+    Check if "B" is the answer.
+
+    Problem: sometimes model outputs "Paris", or "B)" or "The answer is B".
+    Parsing is fragile.
+
+  Method 2: likelihood-based (what nanochat uses)
+    For each choice, compute:
+      P("Madrid" | prompt), P("Paris" | prompt), P("Rome" | prompt), P("London" | prompt)
+    Pick the choice with highest probability.
+
+    More robust. No parsing needed.
+```
+
+**The eval suite you'll run after training**:
+
+```
+  torchrun ... -m scripts.chat_eval
+
+  Runs through:
+    ✓ MMLU (30 min on 8xH100)          → composite accuracy
+    ✓ ARC-Easy (5 min)                  → accuracy
+    ✓ ARC-Challenge (5 min)             → accuracy
+    ✓ HellaSwag (5 min)                 → accuracy
+    ✓ GSM8K (20 min, needs generation)  → exact match
+    ✓ HumanEval (10 min, needs code exec) → pass@1, pass@10
+    ✓ SpellingBee (custom, 5 min)
+    ✓ CustomJSON format (5 min)
+
+  Output:
+    metric               value
+    ──────────────────── ──────
+    mmlu                 0.334
+    arc_easy             0.512
+    arc_challenge        0.287
+    hellaswag            0.448
+    gsm8k                0.103
+    humaneval            0.056
+    spellingbee          0.634
+    customjson           0.912
+    CORE                 0.251  ← the headline number
+```
+
+Logged to wandb and report.md.
+
+**Benchmark contamination visualized**:
+
+```
+  Training data              Test set
+  ──────────────             ─────────────
+                               MMLU question:
+   "The capital of           "What is the capital of
+   France is Paris."   ←──── France?"
+
+   If this appears in         Model saw the answer
+   training data,             during training.
+   model's score is           Benchmark is corrupted.
+   misleadingly high.
+```
+
+Frontier labs worry about this constantly. For academic benchmarks, modern LLMs are likely partially contaminated. "Uncontaminated eval" is a hot research area.
+
 ## Exercises
 
 1. Open `tasks/mmlu.py`. Read the `iterate` function. See the multiple-choice format.

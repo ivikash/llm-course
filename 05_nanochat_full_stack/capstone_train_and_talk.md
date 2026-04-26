@@ -46,6 +46,96 @@ python -m scripts.chat_web
 
 Quality will be poor but it'll chat.
 
+## Visualize this
+
+**What success looks like**:
+
+```
+  After your training completes:
+
+  1. Open browser → http://<your-ip>:8000
+  2. See chat UI:
+
+     ┌────────────────────────────────────────┐
+     │   nanochat                             │
+     ├────────────────────────────────────────┤
+     │                                         │
+     │  [you]   Who are you?                   │
+     │                                         │
+     │  [bot]   I'm nanochat, a small language │
+     │          model trained for research and │
+     │          educational purposes...         │
+     │                                         │
+     │  [you]   What's 2+2?                    │
+     │                                         │
+     │  [bot]   4.                             │
+     │                                         │
+     │  [you]   Tell me a joke.                │
+     │                                         │
+     │  [bot]   Why did the chicken cross the   │
+     │          playground? To get to the      │
+     │          other slide.                   │
+     │                                         │
+     ├────────────────────────────────────────┤
+     │  [type message ...]                [Send]│
+     └────────────────────────────────────────┘
+
+     Token-by-token streaming. Feels like ChatGPT. But it's YOURS.
+```
+
+**Metrics dashboard (wandb)**:
+
+```
+  your run URL:  wandb.ai/<your-user>/<project>/runs/<run-id>
+
+  Panels you'll look at:
+  ┌──────────────────┬──────────────────┬──────────────────┐
+  │ train/loss       │ val/bpb          │ train/mfu        │
+  │   (main curve)   │   (quality)      │   (GPU util)      │
+  └──────────────────┴──────────────────┴──────────────────┘
+  ┌──────────────────┬──────────────────┬──────────────────┐
+  │ eval/mmlu        │ eval/gsm8k       │ eval/humaneval   │
+  └──────────────────┴──────────────────┴──────────────────┘
+  ┌──────────────────┬──────────────────┬──────────────────┐
+  │ train/grad_norm  │ system/gpu_util  │ samples (text)   │
+  └──────────────────┴──────────────────┴──────────────────┘
+```
+
+Screenshots of these in your report. Prove it.
+
+**What your cost structure will look like (Lambda, 8xH100 @ $25/hr)**:
+
+```
+  Spin up instance            0:00     $0
+  Run speedrun.sh             0:05     $2
+  Pretraining running...      0:30     $12
+  Pretraining done            2:30     $60
+  SFT complete                 3:05     $77
+  Eval complete                 3:35     $89
+  Download artifacts           3:40     $91
+  Terminate instance            3:45    $94   ← STOP HERE!
+
+  Total: ~$94 for one end-to-end run.
+  Spot instance version:      ~$30.
+
+  DO NOT forget to terminate. A forgotten 8xH100 over a weekend = $1,200.
+```
+
+Set a calendar reminder. Seriously.
+
+**Checklist before you SSH in**:
+
+```
+  [ ] Lambda / Runpod account funded
+  [ ] Billing alert set at $100
+  [ ] SSH key added to provider
+  [ ] wandb account + API key ready
+  [ ] 3 hours of uninterrupted time scheduled
+  [ ] Phone reminder "terminate instance" set for +4 hours
+  [ ] Local tmux session planned (so SSH drops don't kill training)
+  [ ] Fresh mind (don't start at 11pm)
+```
+
 ## Success criteria
 
 At the end:

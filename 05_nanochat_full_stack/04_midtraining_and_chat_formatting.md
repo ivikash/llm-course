@@ -114,6 +114,108 @@ Open `~/workspace/nanochat/tasks/smoltalk.py`. See how SmolTalk examples get con
 
 Open `~/workspace/nanochat/tasks/common.py`. Shared helpers used across task datasets.
 
+## Visualize this
+
+**Midtraining / SFT token structure**:
+
+```
+  Training example during SFT:
+
+  <|bos|><|user_start|>What is 2+2?<|user_end|><|assistant_start|>4.<|assistant_end|>
+  
+  Split for training:
+    x =        [bos, us, W, i, s, ?, ue, as, 4, .]       (input)
+    y =        [us, W, i, s, ?, ue, as, 4, ., ae]        (target, shifted by 1)
+    loss_mask = [0,  0, 0, 0, 0, 0,  0, 1, 1, 1]         (compute loss only on assistant)
+```
+
+**Why loss masking matters**:
+
+```
+  WITHOUT loss mask (wrong):
+    Model learns to predict user tokens too.
+    Effect: it might try to "complete" user messages, mimicking users.
+    Result: weird conversational behavior, model asking its own questions.
+
+  WITH loss mask (right):
+    Model learns only: "given a formatted conversation, produce a good
+    assistant response and stop at <|assistant_end|>".
+    Result: clean, role-appropriate behavior.
+```
+
+**Packing conversations into training sequences**:
+
+```
+  naive packing (waste):
+  seq 1: <conv1 tokens> [PAD PAD PAD PAD PAD ... padding ...]   seq_len 2048
+  seq 2: <conv2 tokens> [PAD PAD PAD ...]
+  (most tokens are padding, wasted compute)
+
+  dense packing (nanochat-style):
+  seq: <bos><conv1 tokens><bos><conv2 tokens><bos><conv3 tokens>...   seq_len 2048
+  (each seq contains multiple conversations, minimal waste)
+
+  BUT: attention must not cross conversation boundaries!
+  Solution: attention mask that resets at each <bos>.
+       Conv 1 cannot attend to Conv 2.
+       Conv 2 cannot attend to Conv 1.
+       Implemented in nanochat/flash_attention.py.
+```
+
+**Chat template format comparison**:
+
+```
+  OpenAI format (ChatGPT):
+  [
+    {"role": "system", "content": "You are helpful."},
+    {"role": "user", "content": "Hi"},
+    {"role": "assistant", "content": "Hello!"}
+  ]
+
+  Llama-2 format:
+  "<s>[INST] <<SYS>>\nYou are helpful.\n<</SYS>>\n\nHi [/INST] Hello! </s>"
+
+  Llama-3 format:
+  "<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+  You are helpful.<|eot_id|><|start_header_id|>user<|end_header_id|>
+  Hi<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+  Hello!<|eot_id|>"
+
+  nanochat format:
+  "<|bos|><|user_start|>Hi<|user_end|><|assistant_start|>Hello!<|assistant_end|>"
+```
+
+Different models = different special tokens. Your tokenizer's `apply_chat_template` handles this. Using the wrong template for a given model produces bad outputs.
+
+**Dataset composition for SFT**:
+
+```
+  SmolTalk (general instruction-following):
+  ──────────────────────────────────────────
+  "Write a haiku about summer."
+  "Explain recursion."
+  "Translate to French: Hello world"
+  ...
+  → teaches broad helpfulness
+  ~1M conversations total
+
+  Identity conversations (~2000):
+  ──────────────────────────────────────────
+  "What's your name?" → "I'm nanochat, trained by..."
+  "Who made you?" → "I was built with nanochat..."
+  ...
+  → teaches consistent persona
+
+  Tool-use examples (optional):
+  ──────────────────────────────────────────
+  "What's 4237 * 89?"
+  → "<|python_start|>4237*89<|python_end|><|output_start|>377093<|output_end|>
+     The answer is 377,093."
+  → teaches tool use
+
+  Mixed together, shuffled, packed into sequences.
+```
+
 ## Exercises
 
 1. Use the nanochat tokenizer to encode a sample conversation:

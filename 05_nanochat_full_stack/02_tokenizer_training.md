@@ -153,6 +153,103 @@ The tokenizer is a tiny part of the whole system - maybe 10 MB of merge rules + 
 
 Lesson: spend the hour on tokenizer choice early. Don't rush it.
 
+## Visualize this
+
+**Tokenizer training timeline**:
+
+```
+   minute 0:  load 2B characters of text (~800 MB)
+   minute 1:  initialize with 256 byte tokens
+   minute 2:  find top pair, merge       vocab now 257
+   minute 3:  find top pair, merge       vocab now 258
+   ...
+   minute ~10: vocab hits 32768  ← target reached
+   minute ~11: save tokenizer.json
+   minute ~15: run tok_eval (compression benchmarks)
+```
+
+Total: 10-15 minutes on a single machine. Remarkably fast thanks to Rust.
+
+**Compression visualization across tokenizers**:
+
+```
+  Text: "The quick brown fox jumps over the lazy dog. " × 1000
+
+  Bytes on disk:       45,000
+  ─────────────────────────────────────────────────
+  char-level tokens:   45,000      ratio 1.0  (none)
+  GPT-2 (50K vocab):    9,000      ratio 5.0
+  nanochat (32K vocab): 10,000      ratio 4.5
+  cl100k (GPT-4, 100K): 8,500      ratio 5.3
+  ─────────────────────────────────────────────────
+
+  Bigger vocab = better compression, but:
+  - bigger embedding table (32K × 768 = 24M params)
+  - bigger LM head (same)
+  - more memory to store
+```
+
+The 32K choice for nanochat is a careful balance.
+
+**Special tokens layout in nanochat's vocab**:
+
+```
+  Token ID   Token                  Purpose
+  ────────── ────────────────────── ─────────────────────────
+  0-255      byte-level base        raw bytes
+  256+       BPE merges             normal text
+  ...
+  32000      <|bos|>                beginning of sequence
+  32001      <|user_start|>         user message marker
+  32002      <|user_end|>
+  32003      <|assistant_start|>    assistant message marker
+  32004      <|assistant_end|>
+  32005      <|python_start|>       tool: code execution
+  32006      <|python_end|>
+  32007      <|output_start|>       tool output marker
+  32008      <|output_end|>
+  ...
+  32767      reserved
+
+  Total: 2^15 = 32768
+```
+
+**Chat template rendering, visualized**:
+
+```
+  Input:
+  messages = [
+    {"role": "user", "content": "Hi"},
+    {"role": "assistant", "content": "Hello!"}
+  ]
+
+  render_chat(messages) produces the string:
+  "<|bos|><|user_start|>Hi<|user_end|><|assistant_start|>Hello!<|assistant_end|>"
+
+  Then tokenize:
+  [32000, 32001, 12, 32002, 32003, 1023, 54, 32004]
+   │     │      │   │      │      │     │   │
+   bos   user   "Hi" end   assist "Hello" "!" end
+         start        start
+
+  That's what the model trains on. The model learns: after <|user_end|>,
+  produce <|assistant_start|>, then useful tokens, then <|assistant_end|>.
+```
+
+**Watch it train** (minimal run):
+
+```bash
+python -m scripts.tok_train
+# ...
+# Loading shards...
+# Tokenizer training on 2.0B chars
+# Round 0: vocab 256, top pair: ' t' (freq 3.2e6)
+# Round 100: vocab 356, top pair: 'the ' (freq 5.1e5)
+# Round 1000: vocab 1256, top pair: 'tion' (freq 3.4e4)
+# ...
+# Reached 32768 tokens. Saving to tokenizer.json.
+```
+
 ## Exercises
 
 1. Run `python -m scripts.tok_train` after downloading shards. Time it. See the vocab file produced.

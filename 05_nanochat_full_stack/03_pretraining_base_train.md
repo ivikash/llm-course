@@ -173,6 +173,113 @@ After the run:
 
 This base model can complete text but doesn't follow instructions. Next stages (SFT, RL) fix that.
 
+## Visualize this
+
+**nanochat vs nanoGPT architecture side-by-side**:
+
+```
+  nanoGPT (GPT-2)            nanochat (Llama-style)
+  ────────────────           ──────────────────────
+
+  Input                      Input
+    │                         │
+    ▼                         ▼
+  tok_emb + pos_emb          tok_emb  (position via RoPE inside attn)
+    │                         │
+    ▼                         ▼
+  ┌─────────┐               ┌─────────┐
+  │LayerNorm│               │ RMSNorm │
+  └────┬────┘               └────┬────┘
+       ▼                         ▼
+  MHA (MHA, bias)            GQA (no bias, RoPE-rotated Q,K)
+       │                         │
+       + (residual)              + (residual)
+       ▼                         ▼
+  ┌─────────┐               ┌─────────┐
+  │LayerNorm│               │ RMSNorm │
+  └────┬────┘               └────┬────┘
+       ▼                         ▼
+  MLP: GELU                  MLP: SwiGLU (no bias)
+       │                         │
+       + (residual)              + (residual)
+       ▼                         ▼
+  × N layers                 × depth layers
+  (final ln_f)               (final RMSNorm)
+  lm_head (with bias)         lm_head (no bias, tied weights)
+```
+
+Same skeleton, 5-6 targeted upgrades. That's the Llama recipe.
+
+**Training run structure**:
+
+```
+  base_train.py execution (~3 hours on 8xH100 for GPT-2 grade):
+
+  minute 0:      Parse args, init DDP, load tokenizer
+  minute 0-1:    Build model (1.5B params for depth 24)
+  minute 1-2:    Setup optimizer (Muon + AdamW), LR schedule
+  minute 2:      First batch → first step. Loss ≈ log(32768) ≈ 10.4.
+                 You've seen this in nanoGPT too.
+  minute 3:      Warmup complete, LR at peak.
+                 Loss dropping fast (~5.0 by step 1000).
+  minute 5-120:  Main training. Loss trajectory:
+                   step 1k:  5.0
+                   step 5k:  3.2
+                   step 10k: 2.8
+                   step 20k: 2.5
+                   step 50k: 2.3
+                   step 100k:2.1  ← GPT-2 level, speedrun completes
+  minute 120:    Final eval. CORE benchmark runs.
+  minute 130:    Save final checkpoint.
+```
+
+**The metrics that matter** (live on wandb):
+
+```
+                   what to watch
+  ────────────────────────────────
+  train/loss       → monotonically decreasing (mostly)
+  val/bpb          → decreasing; this is the money metric
+  train/lr         → warmup then cosine decay
+  train/grad_norm  → should stay near 1.0
+  train/mfu        → model FLOPs utilization; 40-55% is healthy on H100
+  train/tok_per_sec → throughput; stable = good
+  gpu_memory       → high but not OOMing
+
+  Every ~5000 steps:
+  eval/core        → overall capability metric (DCLM composite)
+  eval/val_loss    → validation loss
+  sample_text      → "Quick brown fox ..." completions
+```
+
+**The Muon + AdamW split**:
+
+```
+  Parameter          Optimizer    Reason
+  ────────────────── ──────────── ─────────────────────────
+  2-D weight matrices Muon         orthogonalized momentum,
+                                    trains well at high LR
+  Embeddings          AdamW        high-dim sparse, AdamW handles
+  Final projection    AdamW        sharp distribution, AdamW more stable
+  Biases, LayerNorm   AdamW (WD=0) small tensors, no decay
+
+  Both optimizers step every iteration; each only touches its params.
+```
+
+**Depth dial in action** (what you'd set for various goals):
+
+```
+  Goal                              depth  wall time on 8xH100
+  ──────────────────────────────    ─────  ──────────────────
+  Quick sanity check (CPU)            4     30 min CPU
+  Laptop experiments (1x4090)         8     2 hours
+  Research toy runs                  12     5 min
+  Speedrun (beat GPT-2)              24     ~2 hours
+  Practical GPT-2 grade              26     ~2.5 hours
+  Approaching GPT-2 Large            36     ~12 hours
+  Small Llama-1 territory            40     ~20 hours, big memory
+```
+
 ## Exercises
 
 1. Read the argparse section at the top of `scripts/base_train.py`. Understand every flag.

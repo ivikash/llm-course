@@ -160,6 +160,133 @@ See also:
 - `tasks/spellingbee.py` - a custom letter-based puzzle.
 - `tasks/customjson.py` - structured output format compliance.
 
+## Visualize this
+
+**The three RL flavors compared**:
+
+```
+  PPO (classic RLHF, ChatGPT):
+  prompt ─→ policy ─→ response
+               │        │
+               │        ▼
+               │     reward model (trained on human prefs)
+               │        │
+               │        ▼
+               │     scalar reward
+               ▼
+           PPO update + KL to reference policy
+
+  DPO (simpler, popular):
+  prompt + (good, bad) preference pair
+            │
+            ▼
+      Direct loss: push π(good) up, π(bad) down, relative to reference
+
+  GRPO (nanochat, DeepSeek-R1):
+  prompt ─→ sample K responses from policy
+                         │
+                         ▼
+                 ┌───────┴───────┐
+                 │               │
+          correctness         correctness
+           (0 or 1)            (0 or 1)
+                 │               │
+                 ▼               ▼
+         advantage = (reward - mean(rewards)) / std
+                 │
+                 ▼
+         Policy gradient: ∇log π × advantage
+                 + KL penalty
+```
+
+PPO needs a reward model. DPO needs preferences. GRPO just needs verifiable correctness.
+
+**What GRPO does per step**:
+
+```
+  Step N:
+    1. Sample batch of prompts from GSM8K:
+         "A train travels 60 miles in 2 hours. What is its speed?"
+
+    2. Generate K=16 responses per prompt using current policy:
+         response 1: "60 / 2 = 30 mph"                    ← correct
+         response 2: "30 mph"                               ← correct (short)
+         response 3: "Let me think... 60 miles is the distance..."
+         response 4: "I think 40 mph"                      ← wrong
+         ... (16 total)
+
+    3. Extract final answers, check against ground truth:
+         rewards = [1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1]
+                    (11 correct of 16)
+
+    4. Compute advantages (relative within the group):
+         mean = 0.69
+         std = 0.46
+         advantages = [0.67, 0.67, 0.67, -1.50, 0.67, -1.50, ...]
+
+    5. Update policy:
+         For each response:
+           - If correct (positive advantage): make it more likely.
+           - If wrong (negative advantage): make it less likely.
+         + small KL penalty against pre-RL (SFT) model.
+
+  Repeat thousands of times.
+```
+
+**Observable improvement during GRPO**:
+
+```
+  GSM8K accuracy  over RL steps:
+
+  60% │                             ●●●●●●●●
+      │                        ●●●●
+      │                   ●●●●
+  40% │              ●●●
+      │         ●●●
+      │    ●●●              ← starts from SFT baseline
+  20% │●●●
+      │
+   0% └─────────────────────────────────────── step
+     SFT  1k   2k   3k   5k  10k 20k
+
+  Can also regress on MMLU slightly (catastrophic forgetting)
+  - why KL penalty matters.
+```
+
+**The KL penalty, visually**:
+
+```
+  Without KL penalty:
+    RL pushes policy far from reference.
+    Gains on target task, but lose general capabilities.
+
+        π_SFT ─────────→ π_RL
+                               (very different distribution)
+
+  With KL penalty:
+    RL nudges policy slightly, staying near reference.
+
+        π_SFT ─→ π_RL
+                 (close to SFT, but slightly better at target)
+
+  KL coefficient β controls how much drift is allowed.
+  Too small β: policy drifts too far, forgets general knowledge.
+  Too big β: policy barely moves, RL has no effect.
+```
+
+**RL needs a verifiable task**:
+
+```
+  Good for GRPO:                Not good for GRPO:
+  ───────────────               ──────────────────────
+  math problems (check answer)  creative writing (no "correct")
+  code (run tests)              open-ended Q&A (fuzzy)
+  format tasks (JSON valid?)    chit-chat
+  multiple choice               subjective preferences
+```
+
+For the "not good" column, use DPO (Module 7.6) or RLHF with human ratings.
+
 ## Exercises
 
 1. Read `scripts/chat_rl.py` top to bottom. Don't worry about understanding every line - note the overall structure matches what I described.
