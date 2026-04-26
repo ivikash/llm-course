@@ -125,6 +125,43 @@ A concrete mental picture of what the next few months of your work will look lik
 
 That's the whole rhythm. You'll do it hundreds of times.
 
+## Visualize this
+
+**What happens inside a GPU during training** (watch once, understand forever):
+
+```
+  Training step (simplified)
+
+  ┌─────────────┐
+  │ Input batch │  shape (batch_size, sequence_length)   e.g. (32, 1024)
+  └──────┬──────┘       a tensor of token IDs on the GPU
+         ▼
+  ┌─────────────┐
+  │  Forward    │  tensors flow through model
+  │  pass       │  embedding → N transformer blocks → LM head
+  └──────┬──────┘  output: (32, 1024, vocab_size) logits
+         ▼
+  ┌─────────────┐
+  │  Loss       │  compare logits to true next tokens
+  └──────┬──────┘  scalar number
+         ▼
+  ┌─────────────┐
+  │  Backward   │  compute gradients for every weight
+  │  pass       │  (one for each of ~100M-1T numbers)
+  └──────┬──────┘
+         ▼
+  ┌─────────────┐
+  │  Optimizer  │  subtract lr × gradient from each weight
+  │  step       │
+  └──────┬──────┘
+         ▼
+     (repeat)
+```
+
+You'll see this loop every day of your LLM career. In Module 2 Lesson 7 we walk through the exact ~10 lines of Python that implement it.
+
+**Watch `nvidia-smi` while training** (if you have a GPU): `watch -n 1 nvidia-smi` shows live GPU utilization. Healthy training hits 60-90% sustained.
+
 ## Check your setup
 
 Run these commands. If any fail, fix before proceeding.

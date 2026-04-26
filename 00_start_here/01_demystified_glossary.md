@@ -203,4 +203,44 @@ Every working ML engineer uses HuggingFace daily.
 
 You're not supposed to remember all of this. This is a reference. Come back to it whenever a word in a lesson feels heavy. By the end of the course, most of these will feel obvious. Not because you memorized them - because you built the thing.
 
+## Visualize this
+
+Resources to keep open alongside the glossary:
+
+- **Tiktokenizer** (https://tiktokenizer.vercel.app/) → see "Token" in action.
+- **bbycroft.net/llm** (https://bbycroft.net/llm) → see "Transformer", "Attention", "Embedding" work inside a real GPT-2.
+- **3Blue1Brown LLM series** (https://www.youtube.com/@3blue1brown/playlists) → visual explanations of most terms here.
+- **Hugging Face Inference Playground** (https://huggingface.co/playgrounds) → try "LLM", "Fine-tune", "Temperature" on real models.
+
+A conceptual map of how the terms relate:
+
+```
+                   AI
+                    │
+                    ▼
+                   ML
+                    │
+                    ▼
+              Deep Learning
+                    │
+                    ▼
+           Neural Networks
+                    │
+     ┌──────────────┼─────────────┐
+     ▼              ▼             ▼
+  CNN (vision)  Transformer    RNN (older)
+                    │
+     ┌──────────────┼─────────────┐
+     ▼              ▼             ▼
+  BERT           GPT / LLM     T5
+  (encoder)      (decoder)     (enc-dec)
+                    │
+     ┌──────────────┼─────────────────┐
+     ▼              ▼                 ▼
+  Pretrain       SFT / Chat         RLHF / DPO
+  (lots of data) (instructions)     (preferences)
+```
+
+Each of these has its own lesson later. This is the forest. We learn it tree by tree.
+
 Next: `02_tools_and_setup.md`.

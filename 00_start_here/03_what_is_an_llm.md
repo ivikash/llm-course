@@ -145,6 +145,47 @@ That's the "compare predicted distribution to real next token and measure error"
 2. **Extend** to a trigram model. Count triples `(a, b, c)` where `c` follows the pair `(a, b)`. Sample using the last two chars as context. Output should look noticeably less random. Hint: change `defaultdict(Counter)` to be keyed by pairs.
 3. **Think**: A bigram model with a vocabulary of 100 unique chars needs a table of 100 x 100 = 10,000 numbers to represent. What if you used words instead of characters, with a vocab of 50,000 words? You'd need 50,000 x 50,000 = 2.5 billion numbers for bigrams, and 50,000^3 = 125 trillion for trigrams. That's why nobody uses n-gram models for serious LLMs. This is why we need neural networks - to *compress* this knowledge into a finite set of parameters.
 
+## Visualize this
+
+**See it yourself (essential)**:
+- **Tiktokenizer** (https://tiktokenizer.vercel.app/) - paste any text, see how real LLMs split it into tokens. Colored. Takes 10 seconds.
+- **3Blue1Brown: "What is a GPT?"** (https://www.youtube.com/watch?v=wjZofJX0v4M) - 27 minutes, visual walkthrough. Watch after this lesson.
+- **bbycroft.net/llm** (https://bbycroft.net/llm) - 3D animation of a GPT processing tokens. Click through.
+
+**Visualize your bigram model after running it**:
+
+```python
+# after building probs dict in 01_bigram.py, add:
+import matplotlib.pyplot as plt
+import numpy as np
+
+# build a heatmap of char -> char transition probabilities
+chars_list = sorted(probs.keys())
+n = len(chars_list)
+matrix = np.zeros((n, n))
+for i, a in enumerate(chars_list):
+    for j, b in enumerate(chars_list):
+        matrix[i, j] = probs[a].get(b, 0)
+
+plt.figure(figsize=(10, 10))
+plt.imshow(matrix, cmap='hot')
+plt.xticks(range(n), chars_list, rotation=90, fontsize=6)
+plt.yticks(range(n), chars_list, fontsize=6)
+plt.xlabel("next char"); plt.ylabel("current char")
+plt.title("Bigram transition probabilities")
+plt.colorbar()
+plt.tight_layout()
+plt.savefig("bigram_heatmap.png")
+```
+
+Open `bigram_heatmap.png`. **Bright cells = "this letter usually follows this one."** You'll see:
+- A bright column at the space " " and newline positions (everything gets followed by them).
+- "q" almost always followed by "u".
+- Vowels have broad rows (many things follow them).
+- Capital letters mostly follow newlines.
+
+You've seen the language model's "knowledge" as a picture.
+
 ## The punchline
 
 You have just built a language model. A real one, if a weak one.

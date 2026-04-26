@@ -44,6 +44,24 @@ Then, later, we graduate to `nanochat`, which shows what a *real* modern LLM pip
 - People who want to do classical ML (scikit-learn, XGBoost, etc.). That's a different (also valuable) skill set.
 - People who want to be LLM "prompt engineers" without understanding the model. This course goes deeper than that role requires.
 
+## Visualize this
+
+Before you read further, spend 10 minutes watching:
+- **3Blue1Brown: "But what is a neural network?"** (https://www.youtube.com/watch?v=aircAruvnKk) - the best 18-minute intro to neural nets ever made. Do it now. It will save you hours of confusion later.
+
+If you want a one-image intuition for the whole course:
+
+```
+[raw text]  →  [tokens]  →  [embeddings]  →  [attention]  →  [MLP]  →  [logits]  →  [next token]
+  strings       integers     vectors         talk to each    think     probability    pick one
+                             (numbers)       other           per-token  distribution
+                                             (Module 3)      (Module 3)  (softmax)
+```
+
+Every arrow becomes a lesson. By the end of Module 5 you will understand each transformation intimately.
+
+---
+
 ## The tone
 
 I will not talk down to you. I will also not pretend you know things you don't. If you've just said "I don't know what a matrix is," I will not casually mention eigenvalues three lines later and expect you to fill in the gap. Every term is defined the first time it appears.
