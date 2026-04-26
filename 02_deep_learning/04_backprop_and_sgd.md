@@ -107,6 +107,78 @@ print("Auto W2 grad:", W2.grad)
 
 They match. You just did backprop. Now never do it again.
 
+## Visualize this
+
+**Forward vs backward pass**:
+
+```
+                Forward:  data flows →
+  input ──→ layer1 ──→ layer2 ──→ layer3 ──→ output ──→ loss
+   x        W₁,b₁       W₂,b₂     W₃,b₃              ●
+
+                Backward:  gradients flow ←
+   ←──grad──── ←──grad──── ←──grad──── ←──grad──── ←──starts at 1
+
+  Each layer receives dL/d(its output) from the next layer.
+  It outputs:
+    - dL/d(its input)    ──→ passed to the previous layer
+    - dL/d(its weights)   ──→ stored in .grad for the optimizer
+```
+
+Backprop is the chain rule, applied right-to-left, automatically by PyTorch.
+
+**The computation graph, pictorially**:
+
+```
+     x                 W              b
+     │                 │              │
+     └──── @ ──────────┤              │
+                       │              │
+                     (matmul)          │
+                       │              │
+                       └──── + ───────┘
+                              │
+                           (add bias)
+                              │
+                           relu()
+                              │
+                           (nonlinearity)
+                              │
+                            loss()
+                              │
+                              ●  (scalar)
+                              │
+                          .backward()
+                              │
+                              ▼
+          PyTorch walks backward, filling in .grad on x, W, b
+```
+
+**Watch an autograd graph with 3 nodes**:
+
+```python
+import torch
+
+x = torch.tensor([3.0], requires_grad=True)
+y = x * 2       # PyTorch records: y = MulBackward(x, 2)
+z = y ** 3      # PyTorch records: z = PowBackward(y, 3)
+z.backward()
+# chain rule: dz/dx = dz/dy * dy/dx = (3y²)(2) = 6y² = 6×36 = 216
+print(x.grad)   # tensor([216.])
+```
+
+**Karpathy's Micrograd video**: https://www.youtube.com/watch?v=VMj-3S1tku0 - 2.5 hours, builds autograd from scratch in 200 lines. Essential watch once in your career. Shows this picture cleanly.
+
+**Visualize a real autograd graph**:
+```python
+# after building any model and computing loss:
+from torchviz import make_dot   # pip install torchviz
+dot = make_dot(loss, params=dict(model.named_parameters()))
+dot.render("computation_graph", format="png")
+```
+
+You get a real PNG showing the actual DAG PyTorch built. Worth doing once on a toy model - demystifies autograd permanently.
+
 ## Where to find this in nanoGPT
 
 `train.py`:

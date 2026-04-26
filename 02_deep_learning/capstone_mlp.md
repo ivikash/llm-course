@@ -93,6 +93,71 @@ Expected: loss drops from ~4.2 to ~2.0-2.3. Samples are noticeably more word-lik
 
 This is actually a classical "Bengio 2003" style neural language model - the ancestor of modern LLMs. With a context of 8 chars and a single hidden layer, it's already qualitatively better than bigram. Now imagine replacing the "concat-and-linear" with a transformer, context of 2048, billions of parameters, trained on all the internet. That's GPT.
 
+## Visualize this
+
+**Data flow through our MLP, shape by shape**:
+
+```
+  input batch: characters like "ROMEO:"
+                                   │
+                                   ▼
+  Tokenized:  [15, 17, 12, 5, 17, 27]  shape (B=64, context=8)
+                                   │
+                                   ▼
+  Embedding: each char → 32-dim vector
+                                       shape (B=64, context=8, 32)
+                                   │
+                                   ▼
+  Flatten:                        shape (B=64, 256)
+                                   │
+                                   ▼
+  Linear fc1:                     shape (B=64, 128)
+                                   │
+                                   ▼
+  GELU (nonlinearity):             same
+                                   │
+                                   ▼
+  Linear fc2:                     shape (B=64, vocab_size=65)
+                                   │
+                                   ▼
+  Softmax → probability distribution over next char
+```
+
+When you read nanoGPT's model.py next module, this exact pattern appears - just with attention in place of `fc1`.
+
+**Sample outputs over training** (run this to see):
+
+```python
+# after every 500 training steps:
+model.eval()
+print(sample(seed="ROMEO:  ", max_new=100))
+model.train()
+```
+
+You'll observe a progression like:
+- Step 0: "ROMEO:  xW!4kq9a7$kl..." (pure noise)
+- Step 500: "ROMEO:  aht ssto tsere t wh t sou..." (starts to look like text)
+- Step 3000: "ROMEO:  thou shalt not ate the streteth of..." (almost words)
+
+Watching your model learn Shakespeare over time is one of the most satisfying experiences in ML. Do it.
+
+**Plot the training curve**:
+
+```python
+losses = []
+# in training loop:
+if step % 50 == 0:
+    losses.append(loss.item())
+
+# after training:
+import matplotlib.pyplot as plt
+plt.plot(losses)
+plt.xlabel("step × 50"); plt.ylabel("loss")
+plt.savefig("mlp_loss.png")
+```
+
+You'll see the shape: rapid drop from ~4.2, then slow decay toward ~2.0. Classic.
+
 ## Try these modifications
 
 1. Increase `context` to 16. Does loss go lower? (Yes - more signal.)

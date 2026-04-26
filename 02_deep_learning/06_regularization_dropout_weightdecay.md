@@ -55,6 +55,66 @@ iter 1000: train loss 3.2, val loss 3.3      # healthy
 iter 5000: train loss 1.1, val loss 2.8      # overfitting
 ```
 
+## Visualize this
+
+**Overfitting, in one picture**:
+
+```
+  loss
+    │
+    │──  train loss
+    │────
+    │    ─────
+    │         ─────
+    │              ────────── (training fits data more and more)
+    │
+    │  val loss
+    │─────              ●←── "best" checkpoint (lowest val loss)
+    │      ────    ●●●
+    │          ●●●       ●●
+    │                      ●●●●●  (val loss rises: overfitting)
+    │
+    └──────────────────────────── step
+         early               late
+```
+
+Watch train-val gap during training. If val starts climbing while train keeps dropping, you're overfitting. Stop training, or add regularization.
+
+**Dropout, visually**:
+
+```
+  Without dropout:         With dropout (p=0.5):
+                           (random neurons zeroed each pass)
+
+  input                    input
+    │                        │
+    ● ● ● ● ●                ● ●   ● ●    (2 dropped)
+    │╲│╳│╳│╱│                │       │
+    ● ● ● ● ●                ●   ● ●     (1 dropped)
+    │                        │
+  output                   output
+```
+
+Forces the network to be robust - can't rely on any single neuron. Typically p=0.1 to 0.5.
+
+**Weight decay, visually**:
+
+```
+  Without weight decay,       With weight decay,
+  weights grow freely:        weights stay small:
+
+  weight
+    │                          │
+    │      ●                   │
+    │   ●                      │●────●─────●────●
+    │●                         │
+    └────────── time           └────────── time
+```
+
+Smaller weights = smoother function = often better generalization.
+
+**In practice for LLMs**: dropout is usually 0.0 during pretraining (plenty of data, hard to overfit). Set to 0.1-0.2 during fine-tuning on small datasets (Shakespeare toy, your personal corpus).
+
 ## Exercise
 
 1. Open `nanoGPT/config/train_shakespeare_char.py`. Find `dropout = 0.2`. Imagine what happens if you set it to 0.0 - would the baby GPT still learn? Probably, but might overfit (memorize Shakespeare).

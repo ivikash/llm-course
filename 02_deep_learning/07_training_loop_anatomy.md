@@ -70,6 +70,83 @@ Val loss tells you whether you're genuinely learning or just memorizing. Watch i
 
 Once this skeleton is in your bones, every training script you encounter - HuggingFace Trainer, Lightning, TRL's PPOTrainer, Megatron - becomes "this same loop, plus some bells." You'll be fine.
 
+## Visualize this
+
+**The training loop as a flowchart**:
+
+```
+                    ┌─────────────────┐
+                    │  get_batch()    │
+                    │  (sample data)  │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  forward pass   │
+                    │  logits = model │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  compute loss   │
+                    │  cross_entropy  │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  backward()     │
+                    │  fill .grad     │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  optimizer.step │
+                    │  update weights │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  zero_grad      │
+                    │  clear for next │
+                    └────────┬────────┘
+                             │
+                    ┌────────┴────────┐
+                    │                 │
+           log metrics        (eval periodically)
+                    │                 │
+                    └────────┬────────┘
+                             │
+                             ▼
+                        (next step)
+```
+
+This is the exact skeleton in `nanoGPT/train.py`. Every LLM, every deep learning model, follows this pattern.
+
+**Watch training live**: run `python train.py config/train_shakespeare_char.py` and watch the terminal:
+
+```
+iter 0:      loss 4.2870, time 543ms
+iter 10:     loss 3.2156, time 141ms      ← quick drop
+iter 100:    loss 2.4532, time 141ms
+iter 1000:   loss 1.7891, time 141ms      ← plateau approaching
+iter 5000:   loss 1.4697, time 141ms      ← near-final
+```
+
+Fast drop, then plateau. The universal LLM loss-curve shape.
+
+**Visualize the shape of training curves**:
+
+```
+  loss
+    │●
+    │ ●
+    │  ●
+    │   ●●
+    │     ●●●
+    │        ●●●●●
+    │             ●●●●●●●●●●●●●●●●●● (plateau)
+    │                               ●● (more training helps less)
+    │
+    └──────────────────────────────── steps
+```
+
+Log-log plots often linearize this - a power law! That's the basis of scaling laws (Module 6 Lesson 9).
+
 ## Exercise
 
 1. Open `nanoGPT/train.py`. Find the main `while True:` loop (the training loop). Identify:

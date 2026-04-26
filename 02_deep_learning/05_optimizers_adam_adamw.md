@@ -89,6 +89,64 @@ No matter the optimizer, the **learning rate schedule** dominates training. Too 
 
 Covered in Module 4 Lesson 5.
 
+## Visualize this
+
+**SGD vs SGD+Momentum vs Adam, on a loss surface**:
+
+```
+                    ╲                         ╱
+                     ╲                       ╱
+                      ╲        ────         ╱
+   SGD: bounces ───▶   ╲╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲╱        zigzag
+                              valley
+                      ╲      ────        ╱
+   SGD+momentum:       ●──●──●──●──●──●──●            smooths, goes faster
+                       (builds up velocity)
+                      ╲      ────        ╱
+   Adam: like momentum but with per-parameter learning rates
+                       ●──●──●──●──●──●──●            best of both
+   (adapts to steep vs shallow directions)
+```
+
+Hard to draw well in ASCII. Watch **Sebastian Ruder's optimizer comparison gif**: https://ruder.io/optimizing-gradient-descent/ - animated 2D loss surfaces show each optimizer tracing a different path to the minimum. Highly recommended.
+
+**The "why AdamW decouples weight decay" picture**:
+
+```
+  Classical Adam + L2 penalty (wrong):
+    gradient includes L2 penalty
+         ↓
+    Adam's per-param scaling normalizes the gradient, which also scales the penalty
+         ↓
+    weights with small gradients don't get decayed as much → subtle miscalibration
+
+  AdamW (fixed):
+    gradient: just the loss gradient
+         ↓
+    Adam scales only the loss gradient
+         ↓
+    separately subtract lr × weight_decay × w  (outside of Adam)
+         ↓
+    every weight gets the same decay, regardless of gradient magnitude → clean
+```
+
+This small fix (Loshchilov & Hutter 2017) improved generalization across the board. Every modern LLM uses AdamW.
+
+**Which params get weight decay (2D yes, 1D no)**:
+
+```
+  Weight decay applied to:         Weight decay NOT applied to:
+  ┌───┬───┬───┐                    ┌─┐   (bias vectors)
+  │ . │ . │ . │  nn.Linear weights │.│   (LayerNorm gains/biases)
+  │ . │ . │ . │  embeddings        └─┘
+  │ . │ . │ . │  attention Q,K,V    ┌─┐
+  └───┴───┴───┘                     │.│
+                                    │.│
+                                    └─┘
+```
+
+Rule: only 2D (and higher) tensors get weight decay. Biases and LayerNorm parameters stay untouched. Codified in every modern trainer's `configure_optimizers` (see nanoGPT line ~260).
+
 ## Exercise
 
 1. Run the same gradient-descent example from Lesson 1.3 with `torch.optim.SGD`, `torch.optim.Adam`, `torch.optim.AdamW`. Compare convergence speed.

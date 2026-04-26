@@ -67,6 +67,41 @@ Every `nn.Linear` in `model.py` is a layer of neurons. Count them in one GPT blo
 
 Four matmuls per block. 12 blocks in GPT-2-small. 48 matmuls per forward pass, roughly. Each is a bunch of neurons in parallel.
 
+## Visualize this
+
+**A neuron, in one picture**:
+
+```
+        w₁
+  x₁ ────●────┐
+        w₂   │
+  x₂ ────●───┤
+        w₃   ├── Σ ──┬──── activation ──── y
+  x₃ ────●───┤       │
+        w₄   │     + b
+  x₄ ────●────┘
+```
+
+Weighted sum of inputs, plus bias, passed through an activation function. That's it. Everything beyond this - attention, MLPs, multi-head - is *many of these in parallel, stacked*.
+
+**A layer = neurons in parallel**:
+
+```
+  Input (d=4)          Output (n=3 neurons)
+
+    x₁ ─┬─┬─┐          ● y₁
+    x₂ ─┼─┼─┤     →    ● y₂
+    x₃ ─┼─┼─┤          ● y₃
+    x₄ ─┴─┴─┘
+
+  Weight matrix W: shape (4, 3) - 12 numbers learned.
+  Bias b: shape (3,) - 3 numbers learned.
+```
+
+Three neurons, each doing its own weighted sum in parallel - that's `nn.Linear(4, 3)`.
+
+**Interactive playground**: https://playground.tensorflow.org/ - literally watch neurons learn to classify data. Change activations, layer widths, see effects.
+
 ## Exercise
 
 1. Implement `nn.Linear` by hand:

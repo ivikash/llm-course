@@ -70,6 +70,52 @@ The `.view(-1, ...)` flattens batch and sequence dims together. `ignore_index=-1
 
 In nanochat, SFT training adds masking so that the loss only applies to the assistant's tokens, not the user's. You'll see this in `scripts/chat_sft.py`. Same cross-entropy, just with a mask.
 
+## Visualize this
+
+**MSE vs cross-entropy intuition**:
+
+```
+  MSE (for continuous targets)       Cross-entropy (for class labels)
+
+  L = (pred - target)²                L = -log(p_correct_class)
+
+       │                                   │
+       │ pred far                          │ tiny prob on truth =
+       │ from target                       │ huge loss
+       │                                   │
+       │      ●                            │●
+       │    ╱                              │ ╲
+       │  ╱                                │  ╲
+       │╱  target                          │    ╲──────
+       ●─── at here                        │         ●
+    ───┴─────── pred                       │      probability of
+         loss = squared distance           │      correct class
+                                          ───┴──── 0 ──────── 1
+```
+
+MSE: symmetric, smooth. Cross-entropy: asymmetric, explodes when the model is confidently wrong.
+
+**See softmax + cross-entropy together** (this is what every LLM uses):
+
+```
+  Correct class: "mat" (token ID 47)
+
+  Model outputs logits for all 50257 possible next tokens:
+  [12.1, 3.2, -1.4, ..., 8.7, ..., 4.2]     (indices 0, 1, 2, ..., 47, ..., 50256)
+                          ↑
+                       "mat" logit = 8.7
+
+  Softmax makes them probabilities summing to 1.
+  Probability of "mat" = 0.12 (let's say).
+  Cross-entropy loss = -log(0.12) = 2.12
+
+  We want this loss low.
+  → Model should assign high probability to the true next token.
+  → Training nudges weights to make "mat" score higher when context suggests it.
+```
+
+**Why cross-entropy has nice gradients** (for the curious): the gradient of cross-entropy w.r.t. logits is simply `softmax(logits) - one_hot(target)`. Clean, no tricky derivatives. That's why every classification problem uses it.
+
 ## Exercise
 
 1. Build a tiny MSE training example:
