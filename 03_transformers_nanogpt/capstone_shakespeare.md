@@ -85,6 +85,96 @@ print("val loss:", ckpt['best_val_loss'])
 
 The `model` key holds all the weight tensors. You could reload them and play.
 
+## Visualize this
+
+**What you're about to actually see**:
+
+```
+  Terminal after running `python train.py config/train_shakespeare_char.py`:
+
+  Overriding config with config/train_shakespeare_char.py:
+  tokens per iteration will be: 16,384
+  found vocab_size = 65
+  number of parameters: 10.65M
+  num decayed parameter tensors: 26, with 10,738,688 parameters
+  num non-decayed parameter tensors: 13, with 4,992 parameters
+  using fused AdamW: True
+
+  step 0: train loss 4.2858, val loss 4.2888
+  saving checkpoint to out-shakespeare-char
+  iter 0: loss 4.2870, time 543.21ms
+  iter 1: loss 4.2651, time 141.23ms
+  iter 10: loss 3.2156, time 141.02ms      ← watch the number fall
+  iter 100: loss 2.5689, time 140.89ms
+  iter 250: evaluating...
+  step 250: train loss 1.9452, val loss 2.0621
+  saving checkpoint to out-shakespeare-char
+  ...
+  iter 5000: loss 1.4697, time 140.55ms     ← final, near-optimal for this model
+```
+
+This exact run trains a functioning Shakespeare-style language model in ~3 minutes on a GPU.
+
+**What the generated samples look like over training**:
+
+```
+After iter 100:
+  QqZvvxMmRnF h,jWwaLoq e!h?kpkmqjlK ue,uNDvmJbQl!z    (nonsense)
+
+After iter 500:
+  WAS:
+  Thne now, my lord, I and wind to me.
+  ....                                                   (word-like, but broken)
+
+After iter 2500:
+  ROMEO:
+  And I will not be a trater of the world,
+  When thou art in the bravie tham the heart:
+  What say you, sir?                                    (Shakespeare-ish)
+
+After iter 5000:
+  ROMEO:
+  Now in my name, I have deserved her so,
+  Whom I have taught her from the throne of death,
+  And sit thee in her time.                              (solid fake-Shakespeare)
+```
+
+You'll see the progression. It's the most satisfying visualization in the course.
+
+**The loss curve you should produce**:
+
+```python
+# after training, plot from the checkpoint's stored losses
+# or log to wandb during training:
+import wandb
+wandb.init(project="nanoGPT-shakespeare")
+wandb.log({"train/loss": loss.item(), "step": iter_num})
+
+# then on wandb.ai you get:
+#
+#   loss
+#     │ 4.3
+#     │ 4.0  ●
+#     │ 3.5  ●
+#     │ 3.0    ●
+#     │ 2.5     ●●
+#     │ 2.0       ●●●
+#     │ 1.5          ●●●●●●●●●●●●●●●●
+#     │
+#     └──────────────────────────────── steps
+#       0  500  1000  2500  5000
+```
+
+**Make your own report**:
+
+After training, write up what you saw. Include:
+- Final loss.
+- A few generated samples.
+- Time per iteration.
+- Peak GPU memory (if applicable).
+
+This is the template for every experiment you'll run in your career.
+
 ## Reflection questions
 
 After running:

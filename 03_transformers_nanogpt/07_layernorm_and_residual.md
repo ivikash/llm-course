@@ -105,6 +105,99 @@ class Block(nn.Module):
 
 Four components: ln_1, attn, ln_2, mlp. Two residuals. That's a transformer block.
 
+## Visualize this
+
+**Residual connections: the "highway" for gradients**:
+
+```
+  Without residuals:                  With residuals:
+
+   input                               input
+     │                                   │
+     ▼                                   ├───── skip connection
+  ┌──────┐                               │           │
+  │ attn │                            ┌──▼──┐        │
+  └──┬───┘                            │attn │        │
+     ▼                                └──┬──┘        │
+  ┌──────┐                               │           │
+  │ mlp  │                               └─── + ─────┘
+  └──┬───┘                                   │
+     ▼                                       ├───── skip
+  output                                     │           │
+                                          ┌──▼──┐        │
+  Deep stacks: gradients                  │ mlp │        │
+  multiply through many                   └──┬──┘        │
+  layers → vanish/explode.                   │           │
+                                             └─── + ─────┘
+                                                 │
+                                             output
+
+  Deep stacks: gradient flows through the + unchanged.
+  Each layer is a "correction" to x, not a replacement.
+```
+
+Without residuals, training models with 96 layers (GPT-3) wouldn't work. With residuals, it's trivial.
+
+**LayerNorm vs RMSNorm**:
+
+```
+  LayerNorm:
+  For each token:
+    mean(x), std(x)
+    x = (x - mean) / std        ← centers and scales
+    x = x * gamma + beta        ← learnable scale + shift
+
+  RMSNorm (nanochat, Llama):
+  For each token:
+    rms(x) = sqrt(mean(x²))
+    x = x / rms                 ← just scales, no centering
+    x = x * gamma               ← (often no bias)
+```
+
+Simpler, faster. Empirically just as good. That's why modern LLMs moved to RMSNorm.
+
+**Pre-norm vs post-norm**:
+
+```
+  Post-norm (original transformer, 2017):
+    x = LayerNorm(x + Sublayer(x))
+
+    ┌──────┐      ┌────┐      ┌──┐
+    │sublay│ ──── │ +  │ ──── │LN│ ──── out
+    └──────┘      └────┘      └──┘
+      ▲           │
+      └───────────┘ (skip)
+
+    Gradient must pass through LN on the skip path. Can be unstable at depth.
+
+  Pre-norm (GPT-2 onward):
+    x = x + Sublayer(LayerNorm(x))
+
+    ┌──┐      ┌──────┐      ┌────┐
+    │LN│ ──── │sublay│ ──── │ +  │ ──── out
+    └──┘      └──────┘      └────┘
+                │
+      ──────────┴──────── ─────┘  (skip bypasses LN)
+
+    Skip path is identity. Gradient flows freely. Much more stable at depth.
+```
+
+Every modern LLM uses pre-norm. Small architectural detail, huge stability impact.
+
+**Run this to see the effect of removing residuals**:
+
+```python
+# take the Shakespeare trainer and edit Block.forward:
+def forward(self, x):
+    # x = x + self.attn(self.ln_1(x))   # original
+    # x = x + self.mlp(self.ln_2(x))    # original
+    x = self.attn(self.ln_1(x))          # broken: no residual
+    x = self.mlp(self.ln_2(x))           # broken: no residual
+    return x
+```
+
+Train with this. Loss should stagnate or diverge quickly. Revert the change, train again. Loss drops smoothly. You've now *directly felt* why residuals matter.
+
 ## Exercises
 
 1. Implement layernorm by hand:

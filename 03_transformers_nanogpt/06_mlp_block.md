@@ -56,6 +56,75 @@ def forward(self, x):
 
 Notice: two input projections (`c_fc` and `c_fc2`), SiLU on one branch, element-wise multiply, then output projection. More params per layer than plain GELU but often trained with a smaller expansion ratio to compensate.
 
+## Visualize this
+
+**The MLP block as a "wider workspace" for each token**:
+
+```
+  Input token vector (768-d)
+         │
+         ▼
+  ┌────────────────┐
+  │  c_fc          │  linear: 768 → 3072
+  │  (expand 4x)   │
+  └────────┬───────┘
+           │
+           ▼
+  ┌────────────────┐
+  │  GELU          │  nonlinearity
+  └────────┬───────┘
+           │  token now lives in a 3072-d "workspace"
+           │
+           ▼
+  ┌────────────────┐
+  │  c_proj        │  linear: 3072 → 768
+  │  (compress back)│
+  └────────┬───────┘
+           │
+           ▼
+  Output token vector (768-d, same shape as input)
+```
+
+Each position goes through this independently. No cross-token interaction - that's attention's job. MLPs think "per-token."
+
+**Parameter breakdown in a block**:
+
+```
+  Per transformer block:
+  ┌──────────────────────────────────────┐
+  │ Attention                            │
+  │  c_attn: 768 → 2304    ~1.77M params │
+  │  c_proj:  768 → 768    ~0.59M params │
+  │                                      │
+  │ MLP                                  │
+  │  c_fc:    768 → 3072   ~2.36M params │  ← the biggest
+  │  c_proj: 3072 → 768    ~2.36M params │  ← chunks
+  │                                      │
+  │ LayerNorm × 2          ~3K params    │
+  ├──────────────────────────────────────┤
+  │ Total: ~7M params per block          │
+  │ MLP is ~68% of the block.            │
+  └──────────────────────────────────────┘
+```
+
+**The MLP is where knowledge lives** (interpretability research hypothesis): MLPs act as key-value memories storing factual patterns, while attention routes information between tokens. Search "MLP neurons as key-value memories" (Geva 2020).
+
+**SwiGLU vs GELU, visually**:
+
+```
+  GELU MLP (nanoGPT):
+    x ──→ W_fc ──→ GELU ──→ W_proj ──→ out
+               (one path)
+
+  SwiGLU MLP (nanochat, Llama):
+         ┌──→ W_fc  ──→ SiLU ──┐
+    x ───┤                     ├── multiply ──→ W_proj ──→ out
+         └──→ W_fc2 ──────────┘
+              (gating path)
+```
+
+The gating path (W_fc2) acts like an "attention over feature dimensions" - some features are amplified, some suppressed, per-token. Empirically slightly better than GELU.
+
 ## Exercise
 
 1. Sketch the forward of nanoGPT's MLP on paper. Shape check: `(B, T, 768) -> (B, T, 3072) -> gelu -> (B, T, 3072) -> (B, T, 768)`.

@@ -169,6 +169,89 @@ print("output shape:", y.shape)  # (1, 4, 8)
 
 Print the attention weights. See the triangular pattern. Each row sums to 1.
 
+## Visualize this
+
+**The full attention pipeline, one picture**:
+
+```
+  x  (B, T, C=768)
+  │
+  ├──── @ W_Q ───────► Q  (B, T, 768)    ──┐
+  │                                        │
+  ├──── @ W_K ───────► K  (B, T, 768)    ──┤  reshape to
+  │                                        │  multi-head:
+  └──── @ W_V ───────► V  (B, T, 768)    ──┘  (B, n_head, T, head_dim)
+
+                       Q @ K^T
+                          │
+                   ┌──────┴──────┐
+                   │             │
+                   ▼             │
+              ┌────────┐         │
+              │  T × T │         │   / sqrt(head_dim)
+              │ scores │         │
+              └────┬───┘         │
+                   │             │
+              mask (causal)      │
+                   │             │
+              softmax (row-wise) │
+                   │             │
+              attention weights  │
+                   │             │
+                   └──── @ V ────┤
+                                 │
+                                 ▼
+                        (B, n_head, T, head_dim)
+                                 │
+                            reshape to
+                        (B, T, C=768)
+                                 │
+                           @ W_O (output projection)
+                                 │
+                                 ▼
+                         same shape as input
+```
+
+**Run this to see attention happen step by step**:
+
+```python
+import torch, torch.nn.functional as F, math
+import matplotlib.pyplot as plt
+
+B, T, C = 1, 6, 8
+torch.manual_seed(0)
+x = torch.randn(B, T, C)
+Wq, Wk, Wv = torch.randn(C, C), torch.randn(C, C), torch.randn(C, C)
+
+q = x @ Wq
+k = x @ Wk
+v = x @ Wv
+
+# scores
+att = (q @ k.transpose(-2, -1)) / math.sqrt(C)
+print("raw scores:"); print(att[0].round(decimals=2))
+
+# mask
+mask = torch.tril(torch.ones(T, T))
+att = att.masked_fill(mask == 0, float('-inf'))
+print("after causal mask:"); print(att[0].round(decimals=2))
+
+# softmax
+att = F.softmax(att, dim=-1)
+print("attention weights (rows sum to 1):"); print(att[0].round(decimals=3))
+
+# heatmap
+plt.imshow(att[0].numpy(), cmap='viridis')
+plt.xlabel("key"); plt.ylabel("query"); plt.colorbar()
+plt.savefig("attn_pattern.png")
+```
+
+Run it, print the tensors, look at the heatmap. Every LLM, every transformer, does exactly this.
+
+**3Blue1Brown's attention video**: https://www.youtube.com/watch?v=eMlx5fFNoYc - 26 min, animated attention. Watch after reading.
+
+**bbycroft.net/llm's attention section**: click into one token, literally watch Q vectors light up, dot-product with all K vectors, softmax to weights, sum V vectors. Interactive. Takes 2 min.
+
 ## Exercises
 
 1. Run the snippet above. Verify the mask looks right - row `i` has non-zero entries only in columns `0..i`.

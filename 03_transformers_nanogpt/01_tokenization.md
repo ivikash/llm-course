@@ -116,6 +116,76 @@ Beyond text tokens, a tokenizer usually has **special tokens**:
 
 nanochat's tokenizer.py and chat_format.py define these. In nanoGPT, only `<|endoftext|>` is used.
 
+## Visualize this
+
+**Tiktokenizer in action**: https://tiktokenizer.vercel.app/
+
+Paste this exactly and watch how it tokenizes:
+
+```
+Hello, world! The transformer is neat.
+I love Pokémon.
+antidisestablishmentarianism
+```
+
+You'll see each token in a different color. Notice:
+- `" world"` (with leading space) is one token.
+- `" Pokémon"` may be 3 tokens (split around the accent).
+- `"antidisestablishmentarianism"` is 5-6 tokens (rare words split).
+- Single common words like `"the"` are one token each.
+
+**BPE merge, pictorially**:
+
+```
+  Start:  l o w   l o w e r   l o w l y   (each char = 1 token)
+                     │
+     most frequent pair: (l,o)
+                     │
+                     ▼
+  Merge 1: lo w   lo w e r   lo w l y     (~20% fewer tokens)
+                     │
+     most frequent pair: (lo,w)
+                     │
+                     ▼
+  Merge 2: low     low e r     low l y    (even fewer)
+                     │
+                     ... repeat ~32,000 times
+                     │
+                     ▼
+  Final vocab: {"the", " and", "ing", "Paris", ..., "低", ...}
+  Common subwords get dedicated tokens.
+  Rare strings still compose from smaller pieces.
+```
+
+**The tokenization penalty for non-English**: tokenize the same sentence in 3 languages and watch token counts:
+
+```
+English:  "Hello, how are you doing today?"       → 7 tokens
+Spanish:  "Hola, ¿cómo estás hoy?"                 → 10 tokens
+Chinese:  "你好，你今天怎么样？"                      → 14 tokens
+Hindi:    "नमस्ते, आज आप कैसे हैं?"                  → 18 tokens
+```
+
+Same meaning, 2-3x more tokens for non-English. Your "effective context window" shrinks proportionally. A known bias. Modern tokenizers (GPT-4's cl100k, Llama-3) are much better at non-English.
+
+**Chat templates visualized**:
+
+```
+Raw conversation:
+  user: What's 2+2?
+  assistant: 4
+
+What the tokenizer actually sees (nanochat style):
+  <|bos|><|user_start|>What's 2+2?<|user_end|><|assistant_start|>4<|assistant_end|>
+
+Token IDs:
+  [1, 102, 15, 35, 27, 17, 29, 48, 103, 104, 4, 105]
+   │   │                           │   │       │
+   BOS user_start                  end start   assistant_end
+```
+
+Everything - text, roles, markers - is just token IDs by the time the model sees it.
+
 ## Exercises
 
 1. `pip install tiktoken`. Try the above snippets.

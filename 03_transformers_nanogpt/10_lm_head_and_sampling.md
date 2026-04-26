@@ -80,6 +80,99 @@ During generation, we call the model repeatedly with ever-longer sequences. Naiv
 
 KV cache makes generation roughly 10-100x faster for long outputs.
 
+## Visualize this
+
+**Sampling strategies side-by-side**:
+
+```
+  Logits for next token: [1.2, 0.8, 3.5, -0.1, 2.1, ...]  (vocab size 50257)
+
+                              Softmax probabilities
+
+  Greedy (temp=0):
+                              ▮                              all mass on argmax
+  ─────────────────────────── 3.5 ──────────────────────────  (deterministic)
+
+  Temperature = 1.0:
+                          ▮   ▮▮    ▮         (natural distribution)
+                       ▮▮▮▮▮▮▮▮▮▮▮▮▮
+
+  Temperature = 0.3:
+                              ▮▮▮                          (sharper, biased to top)
+                            ▮▮▮▮▮▮
+
+  Temperature = 2.0:
+                       ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮  (flatter, more random)
+
+  Top-k (k=5):
+                                ▮                         (only top 5 kept)
+                            ▮▮  ▮
+                          ▮ ▮  ▮
+
+  Top-p (p=0.9):
+                             Adaptive: keep tokens until probability mass reaches 0.9
+```
+
+ChatGPT's "temperature" slider literally does this.
+
+**Autoregressive generation, step by step**:
+
+```
+  step 1:
+    prompt: "Once upon a time"
+    model input: [token("Once"), token(" upon"), token(" a"), token(" time")]
+    model output: probability for next token
+    sample: " there"  (let's say)
+
+  step 2:
+    prompt: "Once upon a time there"   (append last output)
+    model input: [t("Once"), t(" upon"), t(" a"), t(" time"), t(" there")]
+    model output: probability for next token
+    sample: " lived"
+
+  step 3:
+    prompt: "Once upon a time there lived"
+    ...and so on, until <|endoftext|> or max length.
+```
+
+Each token costs one full forward pass (without KV cache) - that's why generation is slow. KV cache (Module 5) makes each step O(1) past context instead of O(T²).
+
+**Inside the LM head**:
+
+```
+  Final hidden state at position T-1:
+     h = [0.12, -0.45, 0.8, ..., 0.33]   (shape: n_embd=768)
+
+  Projection to vocab:
+     logits = h @ W_lm_head  + b
+                 (shape: 768 × 50257)
+              →  (shape: 50257,)  ← one score per possible next token
+
+  Softmax:
+     probs = softmax(logits / temperature)
+              →  (shape: 50257,)  ← probabilities summing to 1
+
+  Sample:
+     idx = torch.multinomial(probs, num_samples=1)
+              →  one integer: the chosen next token
+```
+
+That's it. Everything past the final ln_f is this simple.
+
+**Weight tying in action**:
+
+```
+  Input path:
+    token_id → embedding matrix (50257 × 768) → vector (768,)
+                 ^
+                 │  SAME matrix (transposed)
+                 │
+  Output path:   │
+    vector (768,) → projection (768 × 50257) → logits (50257,)
+
+  → ~38M parameters shared between input and output. Saves memory.
+```
+
 ## Exercises
 
 1. Run sampling with the Shakespeare-trained nanoGPT model (after capstone). Try temperatures 0.1, 0.8, 1.5. Note how output changes.

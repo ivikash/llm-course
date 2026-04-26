@@ -190,6 +190,101 @@ Every piece is something we've covered:
 
 **That's it. That's all that happens when GPT is trained.** Wrap a loop that does this in cloud infrastructure for a few weeks with 1000 GPUs and you have GPT-3.
 
+## Visualize this
+
+**train.py's structure, as a map**:
+
+```
+  ┌─────────────────────────────────────────────────┐
+  │               nanoGPT/train.py                   │
+  ├─────────────────────────────────────────────────┤
+  │                                                  │
+  │  [lines 1-80]     Config (knobs)                 │
+  │                                                  │
+  │  [lines 100-120]  Distributed setup (torchrun)   │
+  │                                                  │
+  │  [lines 120-160]  get_batch (data loading)       │
+  │                                                  │
+  │  [lines 160-200]  Model init (3 paths)           │
+  │                       • from scratch              │
+  │                       • resume from ckpt          │
+  │                       • from GPT-2 pretrained     │
+  │                                                  │
+  │  [lines 200-220]  Optimizer (AdamW + groups)     │
+  │                                                  │
+  │  [lines 220-240]  Learning rate schedule         │
+  │                                                  │
+  │  ┌───────── MAIN LOOP [lines 240-end] ────────┐  │
+  │  │  set LR for this step                       │  │
+  │  │  ┌── eval periodically ──┐                  │  │
+  │  │  │  compute val loss     │                  │  │
+  │  │  │  save checkpoint      │                  │  │
+  │  │  └───────────────────────┘                  │  │
+  │  │                                              │  │
+  │  │  for micro_step in grad_accum_steps:        │  │
+  │  │    forward pass (under autocast)            │  │
+  │  │    scaled_loss.backward()                   │  │
+  │  │    prefetch next batch                      │  │
+  │  │                                              │  │
+  │  │  clip_grad_norm                              │  │
+  │  │  optimizer.step()                            │  │
+  │  │  optimizer.zero_grad()                       │  │
+  │  │                                              │  │
+  │  │  log to wandb/stdout                         │  │
+  │  │                                              │  │
+  │  │  iter_num += 1                               │  │
+  │  └───────────────────────────────────────────────┘
+  │                                                  │
+  └─────────────────────────────────────────────────┘
+```
+
+300 lines. Every line fits in your head. This is the training script that reproduces GPT-2.
+
+**Training rhythm visualization** (what you'll see):
+
+```
+  wall clock         console output
+  ─────────────     ────────────────────────────────────
+  0 sec             iter 0: loss 10.93, time 543.21ms
+  0.14s             iter 1: loss 10.85, time 141.23ms
+  ...
+  14.1s             iter 100: loss 5.32, time 141.01ms
+  ...
+  141s              iter 1000: loss 3.51, time 141.02ms
+  250s              step 1762: evaluating...
+  250.5s            step 1762: train loss 3.43, val loss 3.52
+  250.5s            saving checkpoint...
+  ...
+  14,100s (4h)      iter 100000: loss 2.85, time 141.01ms    ← GPT-2 level
+  ...
+```
+
+**Run nanoGPT and watch this actually happen** - it's the most educational experience in the course.
+
+**Live training dashboard** (with wandb):
+
+```
+  wandb dashboard (in browser):
+  ┌──────────────────────────┬──────────────────────────┐
+  │  train/loss              │  val/loss                │
+  │       ●                  │                          │
+  │        ●                 │        ●                 │
+  │         ●●               │         ●●               │
+  │           ●●             │           ●●             │
+  │             ●●●          │             ●●●          │
+  │                ●●●●      │                ●●●●      │
+  └──────────────────────────┴──────────────────────────┘
+  ┌──────────────────────────┬──────────────────────────┐
+  │  lr                      │  grad_norm               │
+  │     ─────                │       ╱╲                 │
+  │    ╱                     │      ╱  ╲╱╲              │
+  │   ╱    (warmup+cosine)   │     ╱      ╲╱╲           │
+  │  ╱          ╲            │   ╱           ╲          │
+  └──────────────────────────┴──────────────────────────┘
+```
+
+Module 6.7 covers setting up wandb. Worth doing now so you have dashboards for the capstone.
+
 ## What you should do now
 
 Read the actual file, top to bottom. You'll encounter `scaler` (for fp16 mixed precision - ignore for now, covered in Module 4), `torch.compile` (makes things faster via JIT), and `mfu` (Model FLOPs Utilization, a performance metric). If a piece isn't obvious, flag it and we discuss.

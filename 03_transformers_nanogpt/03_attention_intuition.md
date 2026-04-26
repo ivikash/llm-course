@@ -101,6 +101,67 @@ Three lines of substance:
 
 That's all. Next lesson makes each line concrete.
 
+## Visualize this
+
+**Attention pattern for "it" in "The animal didn't cross the street because it was too tired"**:
+
+```
+                 attention weight for "it" looking back
+  The        [0.04]   ▮
+  animal     [0.62]   ▮▮▮▮▮▮▮▮▮▮▮▮▮   ←── big attention, found referent!
+  didn't     [0.03]
+  cross      [0.02]
+  the        [0.04]
+  street     [0.08]   ▮▮
+  because    [0.04]
+  it         [0.10]
+  was        [0.03]
+  too        [0.00]
+  tired      [0.00]
+
+  (causal mask: "it" can't see "was too tired")
+```
+
+That's what a well-trained attention head for coreference resolution looks like. Visualize your own model's attention:
+
+```python
+# after training nanoGPT, extract attention from a layer:
+import torch.nn.functional as F
+with torch.no_grad():
+    # ... forward pass, grabbing attention weights at a block ...
+    attn_weights  # shape (batch, n_head, T, T)
+    
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10, 8))
+plt.imshow(attn_weights[0, 0].cpu(), cmap='viridis')  # head 0
+plt.xlabel("key position (attended to)")
+plt.ylabel("query position (attending)")
+plt.colorbar()
+plt.savefig("attention_head0.png")
+```
+
+Different heads often specialize - one for position, one for syntax, one for coreference. Running this for each of your 12 heads is enlightening.
+
+**The causal mask, pictorially**:
+
+```
+  query pos →   0    1    2    3    4
+                ┌────────────────────┐
+            0   │ ✓   .    .    .    │
+   key      1   │ ✓   ✓    .    .    │
+   pos      2   │ ✓   ✓    ✓    .    │     lower-triangular
+   ↓        3   │ ✓   ✓    ✓    ✓    │     ✓ = allowed
+            4   │ ✓   ✓    ✓    ✓    ✓   │     . = -inf (blocked)
+                └────────────────────┘
+
+  Token at position i can only attend to positions 0..i.
+  Prevents "cheating" by seeing the future.
+```
+
+**Interactive**: https://bbycroft.net/llm - scroll to the attention section, click a token, watch the attention lines light up to other tokens. The single best attention visualization ever built. Open it now.
+
+**Another great tool**: BertViz (https://github.com/jessevig/bertviz) - visualize attention patterns in real pretrained models (BERT, GPT-2) inside a Jupyter notebook.
+
 ## Exercise
 
 1. Stare at the `CausalSelfAttention.forward` method. Don't try to understand it in detail yet. Identify the three steps above.

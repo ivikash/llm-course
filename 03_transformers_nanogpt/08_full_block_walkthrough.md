@@ -112,6 +112,90 @@ For GPT-2 small (V=50257, C=768, L=12, T=1024):
 
 For transformer models, **each layer has roughly 12 * n_embd^2 parameters**. Keep this in your head. It lets you estimate model size from a few numbers quickly.
 
+## Visualize this
+
+**One transformer block, the big picture**:
+
+```
+         input x  (B, T, C)
+              │
+              ├────────────────── skip ──────────┐
+              │                                  │
+              ▼                                  │
+         ┌───────┐                               │
+         │ ln_1  │  (layer norm)                 │
+         └───┬───┘                               │
+             │                                   │
+             ▼                                   │
+      ┌─────────────┐                            │
+      │  attention  │  (multi-head)              │
+      └─────┬───────┘                            │
+            │                                    │
+            └─────────── + ──────────────────────┘
+                         │  ← first residual
+                         │
+                         ├────────── skip ────────┐
+                         │                         │
+                         ▼                         │
+                    ┌───────┐                      │
+                    │ ln_2  │                      │
+                    └───┬───┘                      │
+                        │                          │
+                        ▼                          │
+                 ┌──────────┐                      │
+                 │   MLP    │  (GELU-based)        │
+                 └─────┬────┘                      │
+                       │                           │
+                       └────────── + ──────────────┘
+                                  │  ← second residual
+                                  ▼
+                            output (B, T, C)
+```
+
+Shape never changes. Input in, same-shape output out.
+
+**The full GPT, all blocks stacked**:
+
+```
+  tokens [B, T] integer IDs
+       │
+       ▼
+    wte (token emb)  +  wpe (pos emb)
+       │
+       ▼
+   (B, T, C)
+       │
+       ▼
+    Block 0   ───────┐
+       │              │  each block:
+       ▼              │  - attention (cross-token)
+    Block 1           │  - MLP (per-token)
+       │              │  - pre-norm + residuals
+       ▼              │  - same shape out as in
+      ...             │
+       │              │
+       ▼              │
+    Block N-1  ───────┘
+       │
+       ▼
+   ln_f (final layer norm)
+       │
+       ▼
+    lm_head  (linear → vocab_size)
+       │
+       ▼
+  logits [B, T, vocab_size]
+       │
+       ▼
+  cross_entropy loss (against true next tokens)
+```
+
+That's the entire GPT architecture in one picture. Read `nanoGPT/model.py` with this in mind - you'll recognize every component.
+
+**bbycroft.net/llm**: open it, click each stage, watch the data flow. Three-dimensional render of this exact picture.
+
+**Scale intuition**: GPT-3 is this same picture with `N=96` blocks, `C=12288`, `vocab_size=50257`. That's it. No new architectural ideas. Scaling the existing recipe is how GPT-3 happened.
+
 ## Exercises
 
 1. Do the parameter count for GPT-2 medium (C=1024, L=24, V=50257). Should come out to ~350M.

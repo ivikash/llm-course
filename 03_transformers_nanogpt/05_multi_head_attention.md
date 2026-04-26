@@ -71,6 +71,84 @@ You can visualize attention patterns with tools like [BertViz](https://github.co
 
 Open `nanochat/nanochat/gpt.py`, class `CausalSelfAttention`. You'll see `n_kv_head` - the number of K/V heads, which can be less than `n_head` (query heads). That's GQA.
 
+## Visualize this
+
+**Multi-head attention = N single-head attentions in parallel**:
+
+```
+  Input  x  (B, T, 768)
+          │
+          │  split into 12 heads
+          ▼
+  ┌──────┬──────┬──────┬──────┬──────┬──── 12 heads ────┬──────┐
+  │head 0│head 1│head 2│head 3│head 4│head 5│  ...       │head11│
+  │(64-d)│(64-d)│(64-d)│(64-d)│(64-d)│(64-d)│            │(64-d)│
+  │      │      │      │      │      │      │            │      │
+  │ attn │ attn │ attn │ attn │ attn │ attn │   ...      │ attn │
+  │      │      │      │      │      │      │            │      │
+  └──┬───┴──┬───┴──┬───┴──┬───┴──┬───┴──┬───┴────────────┴──┬───┘
+     │      │      │      │      │      │                   │
+     └──────┴──────┴──┬───┴──────┴──────┴───────────────────┘
+                     │  concatenate back
+                     ▼
+              (B, T, 768)
+                     │
+                   c_proj (linear, lets heads communicate)
+                     │
+                     ▼
+               output
+```
+
+Each head learns different patterns. You've likely heard "some heads are syntactic, some semantic, some track position." Real thing - verifiable via attention visualization.
+
+**A single head vs 12 heads - why the split helps**:
+
+```
+  One big head (768-dim Q, K, V):    One big attention pattern per token.
+
+  12 small heads (64-dim each):       12 different attention patterns per token.
+                                       Head 1: attends to previous token.
+                                       Head 2: attends to sentence beginnings.
+                                       Head 3: attends to matching quotes.
+                                       Head 4: attends to subject of sentence.
+                                       ...
+```
+
+Both use about the same compute. Multiple narrow heads empirically outperforms one wide head.
+
+**Visualize different heads after training**:
+
+```python
+# extract all heads from layer 5
+with torch.no_grad():
+    # ...get attn_weights shape (B, n_head, T, T)...
+    pass
+
+fig, axes = plt.subplots(3, 4, figsize=(16, 12))
+for h in range(12):
+    ax = axes[h // 4, h % 4]
+    ax.imshow(attn_weights[0, h].cpu(), cmap='viridis')
+    ax.set_title(f"Head {h}")
+plt.savefig("all_heads.png")
+```
+
+You'll see diverse patterns across heads. Some attend locally (a band near the diagonal), some attend to specific tokens (vertical stripes).
+
+**GQA (what nanochat uses) visually**:
+
+```
+  Standard multi-head (MHA):
+    Q₁  K₁  V₁       Q₂  K₂  V₂       Q₃  K₃  V₃       Q₄  K₄  V₄
+    (each head has its own K, V)
+
+  Grouped-Query Attention (GQA, 2 groups):
+    Q₁  ┐           Q₂  ┐           Q₃  ┐           Q₄  ┐
+         ├─ K₁, V₁        ├─ K₁, V₁        ├─ K₂, V₂       ├─ K₂, V₂
+    (K, V shared within a group → smaller memory footprint at inference)
+```
+
+Saves KV cache memory during generation. Used by Llama-2-70B, Llama-3, and nanochat.
+
 ## Exercises
 
 1. For `n_embd=768`, `n_head=12`: what's `head_dim`? What if you tried `n_head=11`? (Would fail - must divide evenly.)

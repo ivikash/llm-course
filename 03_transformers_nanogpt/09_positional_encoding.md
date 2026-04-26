@@ -80,6 +80,96 @@ RoPE. Find in `nanochat/nanochat/gpt.py`:
 
 Skim it. You don't need to follow the math on first read - just know that it's "how position info gets injected into attention."
 
+## Visualize this
+
+**Why attention is permutation-invariant without positions**:
+
+```
+  Input: "the cat sat"     positions: [0, 1, 2]
+  Attention processes: {"the", "cat", "sat"}  (as a SET, not a sequence)
+
+  Now shuffle: "sat the cat"  same set!
+  Pure attention (no pos encoding): produces the same output.
+
+  → Without position info, word order is invisible to the model.
+```
+
+**Absolute learned positions (GPT-2, nanoGPT)**:
+
+```
+                        n_embd dimensions
+                ┌───┬───┬───┬───┬───┬───┐
+  position 0    │   │   │   │   │   │   │  ← learned vector for "position 0"
+  position 1    │   │   │   │   │   │   │  ← learned vector for "position 1"
+  position 2    │   │   │   │   │   │   │
+  ...
+  position 1023 │   │   │   │   │   │   │  ← last position we trained on
+                └───┴───┴───┴───┴───┴───┘
+
+  Token at position i gets: token_emb + pos_emb[i]
+  Limitation: doesn't work for positions > 1023 (never saw them).
+```
+
+**Sinusoidal (original transformer, 2017)**:
+
+```
+  Position vectors are fixed, not learned. Shape (position, n_embd/2, 2):
+
+     dim 0     dim 2     dim 4     dim 6     ...
+  sin(pos/1)  sin(pos/100)  sin(pos/10000)  sin(pos/1000000)
+  cos(pos/1)  cos(pos/100)  cos(pos/10000)  cos(pos/1000000)
+   (fast)                                       (slow)
+
+  Each dim oscillates at different frequency. Like a binary counter
+  where each dim handles a different "place value" of position.
+```
+
+Visualize with:
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+d = 64; pos = np.arange(100)
+pe = np.zeros((100, d))
+for i in range(0, d, 2):
+    pe[:, i] = np.sin(pos / 10000**(i/d))
+    pe[:, i+1] = np.cos(pos / 10000**(i/d))
+plt.imshow(pe.T, cmap='viridis', aspect='auto')
+plt.xlabel("position"); plt.ylabel("embedding dim")
+plt.savefig("sinusoidal_pos.png")
+```
+
+You'll see stripes at different frequencies across the dimensions. Beautiful.
+
+**RoPE (nanochat, Llama, modern LLMs)**:
+
+```
+  Instead of ADDING to embeddings, RoPE ROTATES Q and K inside attention.
+
+   Position 0:    Q = [a, b, c, d]       (no rotation)
+   Position 1:    Q' = rotate(Q by 1°)    (rotated by angle proportional to 1)
+   Position 2:    Q' = rotate(Q by 2°)
+   ...
+
+  When you compute Q_i · K_j (dot product in attention):
+    The result depends on (i - j), the relative distance.
+    → "how far apart are these tokens?" is built into the dot product.
+
+  Key property: relative positions encoded naturally.
+                Generalizes to longer sequences than trained on.
+```
+
+**Interactive RoPE**: https://blog.eleuther.ai/rotary-embeddings/ - animations showing how rotation encodes position.
+
+**Position encoding comparison**:
+
+| Approach | Used by | Pros | Cons |
+|----------|---------|------|------|
+| Sinusoidal | Original transformer (2017) | Fixed, extrapolates somewhat | Mediocre vs RoPE |
+| Learned absolute | GPT-2, nanoGPT | Simple, works | Hard cap at block_size |
+| RoPE | Llama, nanochat, most 2023+ | Relative, extrapolates well | Slightly more complex |
+| ALiBi | MPT, BLOOM | Very simple, extrapolates | Less expressive |
+
 ## Exercises
 
 1. In nanoGPT, print the position embeddings after training and plot the first 2 PCA components. They'll form a smooth curve along the position index - positions 0..1023 become geometrically organized automatically.
