@@ -103,6 +103,86 @@ During SFT (Module 5), the tokenizer formats conversations using these tokens. T
 3. **Trailing space vs leading space**: `"hello"` and `" hello"` are often *different* tokens in BPE. Prompt engineering subtlety.
 4. **Numbers**: digit-level tokenization vs chunky tokenization of numbers matters for math. Llama-3 went digit-level for this reason.
 
+## Visualize this
+
+**BPE training, step by step**:
+
+```
+  Iteration 0:
+  corpus (chars):   l o w   l o w e r   l o w l y
+  vocab: {l, o, w, e, r, y, SPACE}   size = 7
+  char pairs counts: (l,o)=3, (o,w)=3, (w,SPACE)=2, (w,e)=1, (e,r)=1, (l,y)=1, ...
+
+  [highest: (l,o)=3 → merge into 'lo']
+
+  Iteration 1:
+  corpus:           lo w   lo w e r   lo w l y
+  vocab: {..., lo}  size = 8
+  pair counts: (lo,w)=3, (w,SPACE)=2, ...
+
+  [highest: (lo,w)=3 → merge into 'low']
+
+  Iteration 2:
+  corpus:           low   low e r   low l y
+  vocab: {..., low}  size = 9
+
+  ...continue 32,000 times...
+
+  Final vocab: {" the", "ing", "tion", "Paris", ..., 32000 tokens}
+```
+
+Each iteration = one new token in the vocabulary = one merge rule.
+
+**What you'd see in nanochat's trained tokenizer**:
+
+```
+  Top merges (most frequent pairs that became tokens):
+
+  merge 256: " " + "t"    →  " t"
+  merge 257: "t" + "h"    →  "th"
+  merge 258: " " + "a"    →  " a"
+  merge 259: "h" + "e"    →  "he"
+  merge 260: " t" + "he"  →  " the"     ← the word "the" is often one token!
+  merge 261: " " + "o"    →  " o"
+  merge 262: "i" + "n"    →  "in"
+  merge 263: " " + "s"    →  " s"
+  ...
+  merge 5000: "Paris"      →  (one token, because it appeared often in training data)
+  ...
+  merge 32000: last one reached
+```
+
+English function words end up as dedicated tokens. Rare scientific terms get split.
+
+**Compression ratio visualized** (why BPE beats char-level for LLMs):
+
+```
+  "The quick brown fox jumps over the lazy dog."
+
+  Char-level:  44 chars  →  44 tokens
+  GPT-2 BPE:   44 chars  →  10 tokens       ← 4.4× compression
+  GPT-4 BPE:   44 chars  →  9 tokens        ← 4.9× compression
+  nanochat:    44 chars  →  10 tokens       ← 4.4× compression
+```
+
+More compression = longer effective context for same token budget.
+
+**Same sentence, different languages** (the known non-English bias):
+
+```
+  Same meaning: "Good morning, how are you?"
+
+  English:  "Good morning, how are you?"      →  6 tokens   (GPT-4)
+  Spanish:  "Buenos días, ¿cómo estás?"        →  12 tokens
+  Chinese:  "早上好，你怎么样？"                  →  18 tokens
+  Arabic:   "صباح الخير، كيف حالك؟"             →  17 tokens
+
+  Non-English users pay 2-3× for the same context. Newer tokenizers
+  (Llama-3, GPT-4o) have narrowed this gap.
+```
+
+**Try it yourself**: paste text in multiple languages at https://tiktokenizer.vercel.app/ - the dramatic difference is real.
+
 ## Exercises
 
 1. With tiktoken, tokenize `"hello"` vs `" hello"`. Are they the same token? (No.) Check:

@@ -123,6 +123,85 @@ for x, y in loader:
 
 HuggingFace's `datasets` library produces objects compatible with this. Fine for fine-tuning on smaller datasets. For pretraining at scale, the memmap-and-index approach (nanoGPT) or shard-streaming (nanochat) wins on simplicity.
 
+## Visualize this
+
+**The journey from text to training-ready data**:
+
+```
+  raw text files                     "The quick brown fox..."
+       │                             "Once upon a time..."
+       ▼
+  ┌─────────────┐
+  │  tokenize   │  BPE / tiktoken
+  └──────┬──────┘
+         ▼
+  list of integer IDs                [15496, 11, 995, 0, ...]
+         │
+         ▼
+  ┌─────────────┐
+  │ concatenate │  add <|endoftext|> between documents
+  └──────┬──────┘
+         ▼
+  giant 1-D array of token IDs       [15496, 11, 995, ..., 50256, ...]
+         │                                                  ~9 billion tokens
+         ▼
+  ┌─────────────┐
+  │  save as    │  uint16 raw bytes to train.bin
+  │  binary     │
+  └──────┬──────┘
+         ▼
+  train.bin  (18 GB file for OpenWebText)
+         │
+         ▼
+  ┌─────────────┐
+  │  np.memmap  │  OS maps file to virtual memory (doesn't load!)
+  └──────┬──────┘
+         ▼
+  ┌─────────────┐
+  │  get_batch  │  random offset, slice block_size tokens, repeat batch_size times
+  └──────┬──────┘
+         ▼
+  x, y tensors on GPU → forward pass
+```
+
+No fancy DataLoader. Just a memmap and random indexing. Scales to any file size.
+
+**How a batch comes out of the memmap**:
+
+```
+  data.bin (giant token stream):
+
+  offset:   0       100     200       ...      8999998000
+  tokens:  [15496, 11, 995, 0, 383, 47385, 318, 15049, 13, 464, ...]
+                                ▲
+                                │
+                     random start index for this sample
+
+  batch_size = 4, block_size = 8:
+
+  sample 0:  offsets [123..130]  x = [15049, 13, 464, 31, 5, 99, 12, 3]
+                                 y = [13, 464, 31, 5, 99, 12, 3, 77]   (shifted by 1)
+
+  sample 1:  offsets [99482..99489]   x=..., y=...
+  sample 2:  offsets [8123..8130]    x=..., y=...
+  sample 3:  offsets [765432..765439] x=..., y=...
+```
+
+x and y always shifted by 1: that's next-token-prediction training.
+
+**Scale perspective**:
+
+| Dataset | Size (tokens) | Epochs of Shakespeare |
+|---------|---------------|------------------------|
+| Shakespeare | 1M | 1 |
+| OpenWebText | 9B | 9,000× |
+| FineWeb (Karpathy 2024) | 2T | 2,000,000× |
+| Llama-3 (2024) | 15T | 15,000,000× |
+
+LLMs typically see each training token **less than once** - the dataset is so big that a single pass is enough.
+
+**Pretty browser view**: https://huggingface.co/datasets/HuggingFaceFW/fineweb/viewer - scroll through FineWeb rows to see what "internet-quality" text looks like.
+
 ## Exercises
 
 1. Run `~/workspace/nanoGPT/data/shakespeare_char/prepare.py` (you already have the output). Open `train.bin` with numpy:

@@ -121,6 +121,123 @@ def get_init_lr(depth: int) -> float:
 
 Also uses per-parameter-group LRs - embedding and head get different LR than the body. An important refinement used in modern LLM training.
 
+## Visualize this
+
+**The canonical LR schedule (warmup + cosine decay)**:
+
+```
+  LR
+   ^
+   │
+   │       ╱──────╲╮
+   │      ╱         ╲
+   │     ╱            ╲
+   │    ╱               ╲
+   │   ╱                  ╲╮
+   │  ╱                     ╲
+   │ ╱                        ╲
+   │╱                            ╲
+   │   warmup        cosine decay  ╲____
+   │ (linear)       (smooth)          ─────
+   │
+   └──────────────────────────────────────────► step
+   0                                    max_iters
+```
+
+- Warmup: 100 to 2000 steps, LR climbs linearly from 0 to max.
+- Peak: hold briefly (or not at all).
+- Decay: cosine curve down to min_lr (usually 10% of max).
+
+**Plot nanoGPT's schedule yourself**:
+
+```python
+import math
+import matplotlib.pyplot as plt
+
+def get_lr(it, warmup=2000, max_iters=600000, lr=6e-4, min_lr=6e-5):
+    if it < warmup:
+        return lr * (it + 1) / (warmup + 1)
+    if it > max_iters:
+        return min_lr
+    decay_ratio = (it - warmup) / (max_iters - warmup)
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (lr - min_lr)
+
+steps = list(range(0, 600000, 100))
+lrs = [get_lr(s) for s in steps]
+plt.plot(steps, lrs)
+plt.xlabel("step"); plt.ylabel("learning rate")
+plt.title("nanoGPT: warmup + cosine decay"); plt.grid()
+plt.savefig("lr_schedule.png")
+```
+
+**Max LR by model size** (empirical rule):
+
+```
+  model size       max LR
+  10M params       3e-3
+  124M (GPT-2)     6e-4
+  350M             3e-4
+  770M             2.5e-4
+  1.3B             2e-4
+  6.7B             1.2e-4
+  13B              1e-4
+  175B (GPT-3)     6e-5
+  1T               ~1e-5
+
+  rough rule: LR ∝ 1 / sqrt(model_size)
+```
+
+Bigger model = smaller LR.
+
+**Alternative schedules (awareness)**:
+
+```
+  Linear:                         Step decay:
+      ───╲                            ────        ────        ────
+          ╲                               ╲___    ╲___
+           ╲                                        ╲___
+            ╲___
+
+  WSD (Warmup-Stable-Decay):      Reverse cosine:
+      ────────────╮                    ╱╮
+                  ╲                   ╱   ╲
+                   ╲                 ╱      ╲
+                    ╲___            ╱         ╲___
+
+  (hold then drop)              (rare)
+```
+
+WSD is newer, sometimes preferred for long runs - stays at max LR longer.
+
+**Warning: this is the single most important hyperparameter**:
+
+```
+  LR too high:         Loss diverges.
+                         │ NaN
+                         │╱
+                         │
+                         │
+                         │  ●
+                         │ ╱  ●
+                         │●     ●●
+                         ├────────────────
+                         └──── step ──────
+
+  LR too low:          Loss crawls.
+                         │ ●
+                         │  ●
+                         │   ●
+                         │    ●
+                         │     ●
+                         │      ● ← still has long way to go
+                         └──── step ──────
+
+  LR just right:       Loss drops smoothly, flattens appropriately.
+```
+
+Always log your grad_norm too - a spike often precedes divergence.
+
 ## Exercises
 
 1. Plot nanoGPT's `get_lr(it)` for `warmup=2000, max_iters=600000, lr=6e-4, min_lr=6e-5`. Should look like the ASCII drawing above.

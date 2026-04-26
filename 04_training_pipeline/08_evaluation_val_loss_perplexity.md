@@ -126,6 +126,116 @@ During training, log to wandb:
 
 Any deviation from usual patterns signals something to investigate.
 
+## Visualize this
+
+**Train loss vs val loss patterns**:
+
+```
+  Healthy (val slightly above train, both dropping):
+    loss │●
+         │ ●●  train
+         │   ●●
+         │     ●●●
+         │        ●●●●●●●●
+         │           ●●●●●●●●●  (train continues)
+         │
+         │   ●   val
+         │     ●
+         │       ●●
+         │          ●●●
+         │              ●●●●  (val plateaus, ~0.2 above train, normal)
+         └────────────────────── step
+
+  Underfitting (both high, not dropping):
+    loss │●●●●●●●●●●●●●●●●●
+         │●●●●●●●●●●●●●●●●●
+         └────────────────────── step
+    Fix: bigger model, more training, fix bug.
+
+  Overfitting (train drops, val rises):
+    loss │●
+         │ ●●  train
+         │   ●●●●●●●●●●●●●●●
+         │                  (train keeps dropping)
+         │   ●●
+         │     ●●●
+         │        ●●      ←── val bottoms out
+         │          ●●
+         │            ●●  ←── val starts rising: overfit!
+         │              ●●
+         └────────────────────── step
+    Fix: regularization, early stop, more data.
+
+  Divergence (spikes):
+    loss │
+         │●
+         │ ●
+         │  ●  ●●●●●●● NaN
+         │    ●●      │
+         │   ● ●      ▼
+         └────────────────────── step
+    Fix: lower LR, check data, grad clip.
+```
+
+**Perplexity scale intuition**:
+
+```
+  Model                  Perplexity (WikiText-103)
+  random (uniform 50K)   50,000
+  n-gram (bigram)        ~300
+  LSTM                   ~50
+  GPT-2 small            ~29
+  GPT-2 large            ~18
+  GPT-3 175B             ~20
+  GPT-4                  ~13 (estimated)
+  human lower bound      ~10 (estimated)
+
+  Halving perplexity ≈ doubling quality (subjectively).
+  Going from 30 → 15 is a big deal, 15 → 14 less so.
+```
+
+**Bits per byte (BPB) - why nanochat uses it**:
+
+```
+  Two models, different tokenizers:
+    Model A: tokenizer vocab 50K, val cross-entropy = 3.1 nats
+    Model B: tokenizer vocab 32K, val cross-entropy = 3.4 nats
+
+  Which is "better"? Can't tell from cross-entropy alone - different vocabs!
+
+  Fix: normalize by bytes of text, not tokens:
+    BPB = (cross_entropy / ln(2)) × (tokens / bytes)
+        = bits of uncertainty per byte of original text
+
+  Now they're directly comparable:
+    Model A: BPB = 0.90
+    Model B: BPB = 0.87  ← actually better
+
+  nanochat's speedrun reports val_bpb. Lower = better.
+```
+
+**GPT-2 level = BPB ~0.95 on validation**. Modern frontier models ~0.7.
+
+**Visualize your evaluation**:
+
+```python
+# after training, plot everything:
+import wandb
+wandb.init(project="my-run")
+wandb.log({
+    "train/loss": train_loss,
+    "val/loss": val_loss,
+    "val/perplexity": math.exp(val_loss),
+    "val/bpb": bpb,
+    "step": step,
+})
+
+# wandb automatically produces:
+#   - Line plots
+#   - Multiple-run comparisons
+#   - Hyperparameter sweeps
+```
+
 ## Exercises
 
 1. Read `nanoGPT/train.py`'s `estimate_loss`. Understand: why `eval_iters=200`, why `@torch.no_grad()`, why `model.eval()`.

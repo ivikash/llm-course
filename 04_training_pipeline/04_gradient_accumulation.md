@@ -101,6 +101,103 @@ PyTorch: `torch.utils.checkpoint.checkpoint(layer, x)`. Typically 30% slower but
 
 nanoGPT doesn't use this; nanochat also doesn't (they tune other knobs). Standard in FSDP setups for big models.
 
+## Visualize this
+
+**Gradient accumulation, pictorially**:
+
+```
+  Normal training (one big batch):
+  ┌────────────────────────────┐
+  │ batch of 64                 │  fwd
+  │                             │  bwd
+  │                             │  step
+  └────────────────────────────┘
+       1 optimizer step
+
+  Gradient accumulation (simulating batch 64 with 4 micro-batches of 16):
+  ┌────────┐
+  │ 16     │  fwd, loss/4, bwd  → grads accumulate
+  └────────┘
+  ┌────────┐
+  │ 16     │  fwd, loss/4, bwd  → grads keep adding
+  └────────┘
+  ┌────────┐
+  │ 16     │  fwd, loss/4, bwd  → still adding
+  └────────┘
+  ┌────────┐
+  │ 16     │  fwd, loss/4, bwd  → last one
+  └────────┘
+       step (once, uses accumulated grads)
+       zero_grad
+
+  Result: same gradient as one big batch of 64, just split over 4 passes.
+  Fits in memory! Slower wall-clock but numerically equivalent.
+```
+
+**Why divide by accum_steps**:
+
+```
+  Without division:
+    loss.backward()  →  grads for batch 1
+    loss.backward()  →  grads added: sum of batch 1 + batch 2
+    ...
+    loss.backward()  →  grads are sum across all 4 micro-batches
+
+  That's a SUM, not an AVERAGE.
+  An average over batch 64 = sum / 64.
+  Sum over 4 micro-batches of 16 = sum / 1.  Different scale!
+
+  Fix: divide each loss by accum_steps BEFORE .backward().
+    (loss / 4).backward()   →  adds grads/4
+    ...
+    (loss / 4).backward()   →  total = sum(grads)/4 = average. ✓
+```
+
+**Effective batch formula**:
+
+```
+  effective_batch = device_batch × grad_accum × num_gpus
+  tokens_per_step = effective_batch × block_size
+```
+
+Example from nanoGPT's GPT-2 config:
+
+```
+  device_batch        = 12
+  grad_accum_steps    = 40
+  num_gpus            = 8  (via torchrun --nproc_per_node=8)
+  block_size          = 1024
+
+  effective_batch     = 12 × 40 × 8 = 3,840 sequences
+  tokens_per_step     = 3,840 × 1024 = 3.9 million tokens per optimizer step
+```
+
+That 3.9M figure is the famous "batch size" of GPT-2-scale runs.
+
+**DDP + grad accum: why only sync on last micro-step**:
+
+```
+  Naive (expensive):
+    micro 1 → backward → all-reduce grads  ← slow
+    micro 2 → backward → all-reduce grads  ← slow
+    micro 3 → backward → all-reduce grads  ← slow
+    micro 4 → backward → all-reduce grads  ← slow
+    step
+
+    Total: 4 all-reduces. Network is 4× bottleneck.
+
+  Optimized (nanoGPT's approach):
+    micro 1 → backward (NO sync)
+    micro 2 → backward (NO sync)
+    micro 3 → backward (NO sync)
+    micro 4 → backward → all-reduce (final sync, covers all 4)
+    step
+
+    Total: 1 all-reduce. 4× less network traffic.
+```
+
+nanoGPT: `model.require_backward_grad_sync = (micro_step == accum_steps - 1)` toggles this.
+
 ## Exercises
 
 1. Train a small model with `grad_accum=1` vs `grad_accum=4` (same effective batch). Wall clock should be similar or slightly slower for ACCUM=4. Loss curves should overlap.

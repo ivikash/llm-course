@@ -135,6 +135,116 @@ Open `~/workspace/nanochat/scripts/base_train.py`. Find where it logs `train/gra
 6. Is data sane? (Check tokenizer output.)
 7. When was the last known good run? (Diff the changes.)
 
+## Visualize this
+
+**The sign of unstable training (log this!)**:
+
+```
+  grad_norm
+     ^
+     │                 │ ← spike! (investigate!)
+     │                 │
+     │                 │      ●
+     │                 │      │
+     │                 │      │
+     │                 │      ▼ training diverges here if unclipped
+     │     ─────────────
+     │  ─── stable at ~1.0 ──
+     │
+     └───────────────────────────► step
+```
+
+Healthy: grad_norm stays near 1.0 (after clipping kicks in). Spikes to 10+ = something bad.
+
+**Gradient clipping, pictorially**:
+
+```
+  Without clipping:
+  gradient vector:
+  ●──────────────────────────────────►  (norm = 50, huge!)
+  weights updated by: -lr × 50 = chaos
+
+  With clip_grad_norm(max_norm=1.0):
+  gradient vector (original):
+  ●──────────────────────────────────►  (norm = 50)
+
+  scale factor = 1.0 / 50 = 0.02
+  clipped gradient:
+  ●─►                                     (norm = 1.0)
+  weights updated by: -lr × 1.0 = reasonable step
+```
+
+Preserves direction, bounds magnitude.
+
+**NaN investigation flowchart**:
+
+```
+  loss.item() is NaN
+         │
+         ▼
+  Was loss OK at step 0?
+      │       │
+      │       ▼
+      │   yes (started OK, NaN'd later)
+      │       │
+      │       ▼
+      │   Check: did grad_norm spike right before?
+      │          │
+      │          ├─ yes → likely LR too high or bad batch
+      │          └─ no  → likely fp16 underflow (switch to bf16)
+      │
+      ▼
+   no (NaN from step 0)
+          │
+          ▼
+      Check: is initial loss reasonable?
+         expected: ~log(vocab_size), e.g. 10.8 for 50257 vocab
+              │
+              ├─ yes (10.8) → check first backward grads for NaN
+              └─ no  → init problem, bad weights
+```
+
+**Common causes, in order of likelihood**:
+
+1. **LR too high** (70% of cases). Halve it.
+2. **Mixed precision overflow** (fp16). Switch to bf16.
+3. **Bad data** (a weird token ID, zero-length sequence). Check your tokenizer.
+4. **Custom layer with division by zero**. Add `eps=1e-8`.
+5. **Catastrophic optimizer state**. Fresh optimizer, resume from last good ckpt.
+
+**Healthy vs unhealthy training curves**:
+
+```
+  Healthy:
+    loss
+     │●
+     │ ●
+     │  ●
+     │   ●●
+     │     ●●●●●●●
+     │           ●●●●●●●●●●●  (smooth decay, then plateau)
+     └─────────────────────── step
+
+  Unhealthy (LR too high):
+    loss
+     │●
+     │ ●             NaN
+     │  ●             │
+     │   ●●           │
+     │     ●●  ●●●●●  │
+     │           ●●●  ↓ ..........
+     └─────────────────────── step
+
+  Unhealthy (overfitting):
+    train ●●●●●●●●●●●●●●
+    val   ●●●●●●●●●●●
+                      ●●  ← diverging from train
+                        ●●
+                          ●●
+```
+
+Spot the shape early; save hours.
+
 ## Exercises
 
 1. Train Shakespeare with `grad_clip = 0.0` (disable clipping) and LR 5x higher than default. Watch training explode.

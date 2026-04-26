@@ -133,6 +133,94 @@ Or with a seed prompt:
 python sample.py --out_dir=out-mydata --start="Dear diary," --num_samples=3
 ```
 
+## Visualize this
+
+**The full pipeline for your custom dataset**:
+
+```
+  your_data.txt (e.g. 500 KB of your journal)
+         │
+         ▼
+  prepare.py:
+  ┌──────────────────────┐
+  │ read text            │
+  │ build char vocab     │
+  │ encode → token IDs   │
+  │ 90/10 train/val split│
+  │ save binary files    │
+  └──────────┬───────────┘
+             │
+             ▼
+  data/mydata/
+    ├── train.bin     (90% of tokens, uint16)
+    ├── val.bin       (10%)
+    └── meta.pkl      (vocab mapping)
+             │
+             ▼
+  config/train_mydata.py:
+  ┌──────────────────────┐
+  │ hyperparameters      │
+  │ block_size, n_layer  │
+  │ learning_rate, etc.  │
+  └──────────┬───────────┘
+             │
+             ▼
+  python train.py config/train_mydata.py
+             │
+             ▼
+  out-mydata/ckpt.pt   (your trained model)
+             │
+             ▼
+  python sample.py --out_dir=out-mydata --start="your prompt"
+             │
+             ▼
+  generated text in your voice
+```
+
+**Expected progression on a personal corpus** (e.g. your journal):
+
+```
+  Step 0:      "X9zq3@!m pG7_"                         (noise)
+  Step 500:    "the and it to..."                       (common words)
+  Step 2000:   "Today I worked on my project..."        (plausible sentences)
+  Step 5000:   "Today I worked on the LLM course.
+                Vikas mentioned he wants visualizations."  ← learning style
+  Step 10000+: may start overfitting (memorizing)
+```
+
+Watch for overfitting - with small personal datasets, loss plateaus then val starts rising.
+
+**Dataset size vs model size rules**:
+
+```
+  Dataset size (tokens)     Appropriate model size (params)
+  100K                        ~10K (char-level only, tiny)
+  1M (Shakespeare)            ~10M
+  10M                         ~50M
+  100M (your big corpus)      ~500M
+  1B                          ~5B
+  10B                         ~50B
+
+  Rule: ~1-20 tokens per parameter.
+  Less = model overfits / memorizes.
+  More = wasted data capacity.
+```
+
+If you have 500 KB of text (~100K tokens after char tokenization), use nanoGPT's small config (n_layer=4, n_embd=128). Don't try GPT-2 size.
+
+**Generation quality as a diagnostic**:
+
+```
+  After training, generate samples. Judge by:
+
+  ✓ syntactically valid (words look like words)
+  ✓ punctuation matches source (periods, commas, newlines)
+  ✓ character names / vocabulary from your corpus appear
+  ✗ completely random nonsense  → undertrained
+  ✗ literally copies training data word-for-word → overfit
+  ✓ plausible NEW sentences in the style → just right
+```
+
 ## Deliverables
 
 Save to `~/workspace/llm-course/exercises/` or your personal notes:

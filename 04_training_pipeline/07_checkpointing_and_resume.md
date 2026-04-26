@@ -147,6 +147,120 @@ If you saved on an 8xA100 run and want to resume on an 8xH100 run, mostly works.
 
 `~/workspace/nanochat/nanochat/checkpoint_manager.py`: atomic writes, multiple checkpoints per training phase (pretrain, SFT, RL), config JSON alongside weights. Worth reading - it's 200 lines of practical code.
 
+## Visualize this
+
+**What's in a checkpoint**:
+
+```
+  ckpt.pt (PyTorch pickle):
+  ┌───────────────────────────────────────────────┐
+  │ {                                              │
+  │   'model': {                                   │
+  │       'transformer.wte.weight': tensor(...),   │
+  │       'transformer.wpe.weight': tensor(...),   │
+  │       'transformer.h.0.ln_1.weight': ...,      │
+  │       ... (hundreds of tensors, ~10 M - 1 T) ..│
+  │       'lm_head.weight': tensor(...),           │
+  │   },                                           │
+  │   'optimizer': {                               │
+  │       'state': {                               │
+  │           0: {'step': 50000,                   │
+  │                'exp_avg': tensor(...),         │ ← Adam m
+  │                'exp_avg_sq': tensor(...)},     │ ← Adam v
+  │           1: {...},                            │
+  │           ...                                  │
+  │       },                                       │
+  │       'param_groups': [...]                    │
+  │   },                                           │
+  │   'model_args': {'n_layer': 12, ...},           │
+  │   'iter_num': 50000,                           │
+  │   'best_val_loss': 2.84,                       │
+  │   'config': {...},                             │
+  │ }                                              │
+  └───────────────────────────────────────────────┘
+
+  File size ≈ 3 × model_params × 4 bytes (model + Adam m + Adam v in fp32)
+```
+
+For GPT-2 (124M params): ~1.5 GB per checkpoint. For 70B: ~850 GB.
+
+**Atomic write pattern**:
+
+```
+  Naive (dangerous):
+    torch.save(ckpt, "ckpt.pt")
+         ▲
+         │ Crash HERE → file half-written, old ckpt already overwritten.
+         │ Training run dead.
+
+  Atomic:
+    torch.save(ckpt, "ckpt.pt.tmp")     ← writes to temp
+    os.replace("ckpt.pt.tmp", "ckpt.pt") ← atomic rename (OS guarantees)
+         ▲
+         │ Crash anywhere before replace: ckpt.pt unchanged.
+         │ Crash during replace: impossible on POSIX.
+```
+
+Always use atomic writes for long runs.
+
+**Checkpoint frequency trade-off**:
+
+```
+  Too frequent (every 10 steps):
+    Save overhead > compute time. Training crawls.
+    1.5GB × 6000 saves/min = 9 TB of writes per minute = NVMe death.
+
+  Too rare (every 100k steps):
+    Crash loses 100k steps = 4 hours of compute.
+
+  Sweet spot (every N steps where save_time ≈ 1% of step time × N):
+    E.g. step = 140 ms, save = 5 s → save every ~3500 steps = ~8 min.
+```
+
+nanoGPT default: 2000 steps.
+
+**The "best vs latest" checkpoint**:
+
+```
+  Train checkpoints over 10000 steps:
+
+  loss  │
+        │●
+        │ ●
+        │  ●
+        │   ●    ←── best_val_loss snapshot (step 2500, val=1.87)
+        │    ●
+        │     ● ●
+        │        ●●
+        │          ●●●●●●    ←── latest (step 10000, val=1.93 — overfit)
+        │
+        └──────────────────────────── step
+
+  Keep both:
+    ckpt_best.pt    ← load for inference / eval
+    ckpt_latest.pt  ← load for resuming training
+```
+
+**Production checkpoint structure** (nanochat-style):
+
+```
+  ~/.cache/nanochat/checkpoints/
+  ├── base/
+  │   ├── step_2000/
+  │   │   ├── model.safetensors
+  │   │   ├── optimizer.pt
+  │   │   └── config.json
+  │   ├── step_4000/...
+  │   ├── latest.json  (points to newest)
+  │   └── best.json    (points to best val)
+  ├── sft/
+  │   └── step_1500/...
+  └── rl/
+      └── step_500/...
+```
+
+Separate by training phase, versioned by step, metadata tracked.
+
 ## Exercises
 
 1. Train Shakespeare to step 2000. Kill the process. Resume with `init_from='resume'`. Verify loss picks up where it left off.

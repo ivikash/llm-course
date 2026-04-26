@@ -111,6 +111,98 @@ Post-training, you can quantize weights to int8 or int4 for deployment. Differen
 
 Relevant for Module 5's serving section.
 
+## Visualize this
+
+**Float format bits**:
+
+```
+  fp32 (32 bits, "single precision"):
+  ┌─┬──────────┬───────────────────────────┐
+  │S│ exponent │     mantissa (23 bits)     │
+  └─┴──────────┴───────────────────────────┘
+   1   8 bits          ~7 decimal digits
+   sign              ~10^±38 range
+
+  fp16 (16 bits, "half precision"):
+  ┌─┬─────┬──────────┐
+  │S│ exp │ mantissa │
+  └─┴─────┴──────────┘
+   1  5       10          ~3 decimals, ~±65000 range
+                          (can overflow/underflow in gradients!)
+
+  bf16 (16 bits, "brain float"):
+  ┌─┬──────────┬──────────┐
+  │S│ exponent │ mantissa │
+  └─┴──────────┴──────────┘
+   1  8 bits      7 bits     ~2 decimals, ~10^±38 range (same as fp32)
+
+  fp8 (8 bits):
+  ┌─┬─────┬────┐
+  │S│ exp │mant│
+  └─┴─────┴────┘
+   1  4-5   2-3   very coarse, needs careful scaling
+```
+
+**bf16's key insight: big range, small precision**
+
+```
+  fp16:   ±65504 max.       Gradients ~1e-8 underflow to 0 → training dies.
+  bf16:   ±3.4e38 max.       Gradients ~1e-8 fine.         → training works.
+```
+
+That's why bf16 won. Same memory as fp16, fp32-equivalent range. No loss scaler needed.
+
+**Memory savings per parameter (during training)**:
+
+```
+                      fp32            bf16 mixed
+  weights (master)    4 bytes         4 bytes
+  weights (working)   (same)          2 bytes
+  gradients           4 bytes         2 bytes
+  AdamW m             4 bytes         4 bytes
+  AdamW v             4 bytes         4 bytes
+  ─────────────────────────────────────────────
+  total per param     16 bytes        16 bytes (same!)
+
+  BUT activations use 2 bytes instead of 4 → halves the big variable cost.
+  Net: ~40% memory savings in practice.
+```
+
+**Speedup landscape on NVIDIA GPUs**:
+
+```
+  A100 TFLOPS (peak):
+    fp32:  19.5
+    tf32:  156   (8× faster, default matmul on A100+)
+    bf16:  312   (16× faster than fp32)
+    int8:  624
+
+  H100 TFLOPS (peak):
+    fp32:  67
+    bf16:  989
+    fp8:   1979  (2× faster than bf16, 30× faster than fp32)
+    fp8 sparse: 3958
+```
+
+Modern LLMs: **bf16 is the default, fp8 where safe, fp32 only for the AdamW master weights**.
+
+**Autocast in action**:
+
+```
+  with torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16):
+      logits = model(x)           # model weights still fp32 in storage
+                                  # but matmuls cast inputs to bf16
+                                  # → bf16 output activations
+      loss = F.cross_entropy(logits, y)
+
+  loss.backward()                 # bf16 activations, fp32 gradients
+  optimizer.step()                # fp32 optimizer updates
+```
+
+Safe zones (bf16): matmuls, convs.
+Unsafe zones (stay fp32): reductions (sums, norms), loss computation, softmax.
+PyTorch's autocast handles it automatically.
+
 ## Exercises
 
 1. Run a small model in fp32 and bf16. Measure wall-clock time. You should see ~1.5-2x speedup on A100+.
