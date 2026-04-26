@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The LLM Course</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
+<style>
+  :root { --side: 320px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+  #app { display: flex; height: 100vh; }
+  #sidebar {
+    width: var(--side); border-right: 1px solid #e5e7eb; overflow: auto;
+    padding: 16px; background: #fafafa;
+  }
+  #sidebar h1 { font-size: 16px; margin: 0 0 12px; }
+  #search {
+    width: 100%; padding: 6px 8px; border: 1px solid #d1d5db;
+    border-radius: 4px; margin-bottom: 12px; font-size: 13px;
+  }
+  #toc { font-size: 13px; line-height: 1.6; }
+  #toc details { margin-bottom: 4px; }
+  #toc summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+  #toc a { display: block; color: #2563eb; text-decoration: none; padding: 2px 6px 2px 18px; border-radius: 3px; }
+  #toc a:hover { background: #eef2ff; }
+  #toc a.active { background: #dbeafe; font-weight: 600; }
+  #content { flex: 1; overflow: auto; padding: 40px 56px; }
+  #content .markdown-body { max-width: 860px; margin: 0 auto; }
+  @media (max-width: 800px) {
+    #app { flex-direction: column; }
+    #sidebar { width: 100%; height: 40vh; border-right: 0; border-bottom: 1px solid #e5e7eb; }
+    #content { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <h1>The LLM Course</h1>
+    <input id="search" placeholder="Filter lessons...">
+    <nav id="toc">loading...</nav>
+  </aside>
+  <main id="content"><article class="markdown-body" id="md">loading...</article></main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/common.min.js"></script>
+<script>
+const MODULES = {
+  '00_start_here':         'Module 0 — Start Here',
+  '01_foundations':        'Module 1 — Math Foundations',
+  '02_deep_learning':      'Module 2 — Deep Learning from Zero',
+  '03_transformers_nanogpt':'Module 3 — The Transformer (nanoGPT)',
+  '04_training_pipeline':  'Module 4 — Training Pipeline',
+  '05_nanochat_full_stack':'Module 5 — nanochat Full Stack',
+  '06_infra_and_scaling':  'Module 6 — Infra & Scaling',
+  '07_research_and_papers':'Module 7 — Research & Papers',
+  '08_leadership':         'Module 8 — Leading Science Teams',
+  'resources':             'Resources',
+  '':                      'Top-level',
+};
+
+marked.setOptions({
+  highlight: (code, lang) => {
+    try { return hljs.highlight(code, { language: lang || 'plaintext' }).value; }
+    catch { return code; }
+  },
+  gfm: true, breaks: false,
+});
+
+function titleFromFile(name) {
+  return name.replace(/\.md$/, '')
+    .replace(/^[0-9]+_/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function groupFiles(files) {
+  const groups = {};
+  for (const f of files) {
+    const slash = f.indexOf('/');
+    const dir = slash === -1 ? '' : f.slice(0, slash);
+    (groups[dir] ||= []).push(f);
+  }
+  return groups;
+}
+
+function renderToc(files) {
+  const groups = groupFiles(files);
+  const toc = document.getElementById('toc');
+  toc.innerHTML = '';
+  for (const dir of Object.keys(MODULES)) {
+    if (!groups[dir]) continue;
+    const det = document.createElement('details');
+    det.open = true;
+    det.dataset.dir = dir;
+    const sum = document.createElement('summary');
+    sum.textContent = MODULES[dir];
+    det.appendChild(sum);
+    for (const f of groups[dir].sort()) {
+      const a = document.createElement('a');
+      a.href = '#' + f;
+      a.dataset.path = f;
+      const base = f.split('/').pop();
+      a.textContent = titleFromFile(base);
+      det.appendChild(a);
+    }
+    toc.appendChild(det);
+  }
+}
+
+async function load(path) {
+  const el = document.getElementById('md');
+  try {
+    const res = await fetch('../' + path);
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    const text = await res.text();
+    el.innerHTML = marked.parse(text);
+    // rewrite relative .md links to hash routes
+    el.querySelectorAll('a[href]').forEach(a => {
+      const href = a.getAttribute('href');
+      if (/^https?:/.test(href) || href.startsWith('#')) return;
+      if (href.endsWith('.md')) {
+        const base = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
+        const resolved = new URL(base + href, 'file:///x/').pathname.replace(/^\/x\//, '');
+        a.setAttribute('href', '#' + resolved);
+      }
+    });
+    document.querySelectorAll('#toc a').forEach(a =>
+      a.classList.toggle('active', a.dataset.path === path));
+    document.getElementById('content').scrollTop = 0;
+  } catch (e) {
+    el.innerHTML = '<h2>Could not load <code>' + path + '</code></h2><p>' + e.message + '</p>';
+  }
+}
+
+function filter(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('#toc details').forEach(det => {
+    let any = false;
+    det.querySelectorAll('a').forEach(a => {
+      const match = !q || a.textContent.toLowerCase().includes(q) ||
+                    a.dataset.path.toLowerCase().includes(q);
+      a.style.display = match ? '' : 'none';
+      if (match) any = true;
+    });
+    det.style.display = any ? '' : 'none';
+    if (q) det.open = true;
+  });
+}
+
+async function main() {
+  const files = await fetch('files.json').then(r => r.json());
+  renderToc(files);
+  const initial = location.hash.slice(1) || 'README.md';
+  load(initial);
+  window.addEventListener('hashchange', () => load(location.hash.slice(1) || 'README.md'));
+  document.getElementById('search').addEventListener('input', e => filter(e.target.value));
+}
+main();
+</script>
+</body>
+</html>
