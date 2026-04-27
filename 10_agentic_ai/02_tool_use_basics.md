@@ -135,6 +135,260 @@ Response structure is slightly different (Claude uses `tool_use` content blocks)
 
 Uses similar JSON Schema format with minor differences.
 
+## Visualize this
+
+**A tool definition, inspected**:
+
+```
+  tool = {
+      "type": "function",
+      "function": {
+          "name": "get_weather",                     ← unique name
+          "description": "Get current weather.",      ← USED BY LLM to
+                                                       decide when to call
+          "parameters": {
+              "type": "object",                        ← always "object"
+              "properties": {
+                  "city": {
+                      "type": "string",
+                      "description": "City name"       ← helps LLM
+                  },
+                  "unit": {
+                      "type": "string",
+                      "enum": ["C", "F"],               ← restrict values
+                  },
+              },
+              "required": ["city"],                     ← which are mandatory
+          },
+      }
+  }
+
+  This JSON Schema teaches the LLM:
+    - the tool exists
+    - what it does
+    - what arguments it takes
+    - what's optional
+```
+
+**Lifecycle of a tool call**:
+
+```
+  User: "What's the weather in Paris in Celsius?"
+       │
+       ▼
+  LLM decides: "I should call get_weather."
+       │
+       ▼
+  LLM returns:
+  {
+    "tool_calls": [{
+      "id": "call_abc123",
+      "name": "get_weather",
+      "arguments": '{"city": "Paris", "unit": "C"}'
+    }]
+  }
+       │
+       ▼
+  Your code parses:
+    name = "get_weather"
+    args = {"city": "Paris", "unit": "C"}
+       │
+       ▼
+  Your code runs:
+    result = get_weather_impl(city="Paris", unit="C")
+           = "18°C, partly cloudy"
+       │
+       ▼
+  Feed result back:
+  {"role": "tool", "tool_call_id": "call_abc123", "content": "18°C, partly cloudy"}
+       │
+       ▼
+  LLM sees result. Decides:
+    "I have the answer. Done."
+       │
+       ▼
+  LLM final response: "The weather in Paris is 18°C and partly cloudy."
+```
+
+**Parallel tool calls** (modern models):
+
+```
+  User: "What's the weather in Paris AND what's 237 × 491?"
+       │
+       ▼
+  LLM decides: call BOTH tools simultaneously.
+       │
+       ▼
+  LLM returns:
+  {
+    "tool_calls": [
+      {"id": "call_1", "name": "get_weather", "arguments": "..."},
+      {"id": "call_2", "name": "calculator",  "arguments": "..."}
+    ]
+  }
+       │
+       ▼
+  Your code runs BOTH in parallel (or sequential, both work):
+    result_1 = get_weather(...)
+    result_2 = calculator(...)
+       │
+       ▼
+  Feed both results back:
+  [{"role": "tool", "tool_call_id": "call_1", ...},
+   {"role": "tool", "tool_call_id": "call_2", ...}]
+       │
+       ▼
+  LLM synthesizes: "The weather is ... and 237 × 491 = ..."
+```
+
+**Error handling (essential in production)**:
+
+```
+  Good agent loop:
+
+  try:
+      result = my_tool(**args)
+  except Exception as e:
+      result = f"Error: {type(e).__name__}: {e}"
+
+  Feed the error back to the LLM. It will often:
+    - Retry with different args
+    - Try a different tool
+    - Apologize to user if it can't recover
+
+  Don't silently swallow errors. Don't let exceptions kill the agent.
+```
+
+**Native tool calling vs ReAct prompting**:
+
+```
+  Native (OpenAI, Claude, Gemini, Mistral):
+  ──────────────────────────────────────
+  API understands tools. Parses JSON. Returns structured tool_calls.
+
+  Pros: reliable, structured, supports parallel calls.
+  Cons: tied to specific API format.
+
+  ReAct prompting (works on any LLM):
+  ──────────────────────────────────
+  You prompt the LLM with:
+    "Respond in this format:
+     Thought: ...
+     Action: tool_name
+     Action Input: {json args}
+
+     Then I'll say:
+     Observation: result
+
+     Repeat until done, then:
+     Final Answer: ..."
+
+  You parse this text yourself.
+  Works on any LLM (including local Llama / Mistral).
+
+  Pros: works everywhere.
+  Cons: brittle (model might break the format).
+  Usage today: mostly with open-source LLMs that lack native tool calling.
+```
+
+**MCP (Model Context Protocol): the cross-provider standard**:
+
+```
+  Problem: tools defined differently for OpenAI, Claude, Gemini, Mistral.
+          Reimplement each. Ugh.
+
+  Solution: MCP (Anthropic, Nov 2024).
+
+  ┌──────────────────────────────────────────────┐
+  │ MCP Server                                    │
+  │  - defines tools once                          │
+  │  - exposes resources (files, data)             │
+  │  - standard protocol                            │
+  └─────────────┬────────────────────────────────┘
+                │
+                │ standard MCP protocol
+                │
+    ┌───────────┼───────────┬───────────┐
+    ▼           ▼           ▼           ▼
+  Claude    Cursor      VS Code    Your app
+  Desktop             (Copilot)    (anything)
+
+  Write tools once, use everywhere MCP-compliant.
+  Increasingly adopted through 2025-26.
+```
+
+**Tool design principles**:
+
+```
+  GOOD tool:
+    ✓ One clear purpose
+    ✓ Descriptive name ("search_arxiv" vs "search1")
+    ✓ Clear parameter names
+    ✓ Useful description (teaches the LLM when to use)
+    ✓ Returns structured output (JSON preferred)
+    ✓ Handles errors gracefully (returns error strings, doesn't crash)
+    ✓ Idempotent (safe to call twice)
+
+  BAD tool:
+    ✗ "do_stuff(query)" - no clarity
+    ✗ Mega-tool that does everything
+    ✗ Silently fails (returns "" on error)
+    ✗ Side effects without confirmation (sends email on every call)
+```
+
+**Tool granularity choice**:
+
+```
+  Option A: few broad tools
+    search(type, query)
+      type ∈ {web, wikipedia, arxiv}
+
+  Option B: many specific tools
+    search_web(query)
+    search_wikipedia(query)
+    search_arxiv(query)
+
+  Tradeoffs:
+    Option A: fewer tools (LLM easier to manage) but more decision inside tool.
+    Option B: more tools (LLM picks) but clearer intent.
+
+  Rule of thumb:
+    < 5 tools: keep them specific (Option B).
+    5-15 tools: mix; maybe group related ones under umbrella tool.
+    > 20 tools: use router pattern (dispatch in the code).
+```
+
+**Security considerations**:
+
+```
+  Every tool is an entry point. Treat LLM output like untrusted user input.
+
+  Tool calls your code runs:
+    ┌──────────────────────┐
+    │ LLM produces args     │
+    │ (attacker-controllable│
+    │  if prompt-injected)   │
+    └──────────┬───────────┘
+               ▼
+    ┌──────────────────────┐
+    │ Your tool function    │
+    │ executes those args    │
+    └──────────────────────┘
+
+  Danger:
+    - File operations → path traversal attacks
+    - Shell commands → command injection
+    - Database queries → SQL injection
+    - HTTP calls → SSRF / exfiltration
+
+  Mitigations:
+    - Whitelist paths / patterns
+    - Parameterized queries (never format strings in)
+    - No shell command execution with LLM-provided args
+    - Rate limit destructive ops
+    - Human-in-the-loop for high-stakes actions
+```
+
 ## Anthropic's MCP (Model Context Protocol)
 
 Released November 2024. A **standard** for how tools are defined and shared across providers.

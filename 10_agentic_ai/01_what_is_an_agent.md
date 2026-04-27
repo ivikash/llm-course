@@ -162,6 +162,245 @@ Why is agentic AI suddenly huge?
 
 The pieces only came together in late 2023. We're still in the early days.
 
+## Visualize this
+
+**Agent = LLM + Tools + Loop**:
+
+```
+  ┌────────────────────────────────────────────┐
+  │              AGENT                           │
+  │                                              │
+  │  ┌─────────┐                                 │
+  │  │  LLM    │  (the brain)                    │
+  │  └────┬────┘                                 │
+  │       │                                       │
+  │       ▼                                       │
+  │  "I should call search_web(query='weather')" │
+  │       │                                       │
+  │       ▼                                       │
+  │  ┌─────────┐                                 │
+  │  │  Tool   │  (hands)                        │
+  │  │ (search,│                                 │
+  │  │  calc,  │                                 │
+  │  │  code)  │                                 │
+  │  └────┬────┘                                 │
+  │       │                                       │
+  │       ▼                                       │
+  │  tool output                                  │
+  │       │                                       │
+  │       └─── fed back into LLM context ──┐     │
+  │                                         │     │
+  │       ┌─────────────────────────────────┘     │
+  │       ▼                                       │
+  │  LLM decides: more tools? answer?             │
+  │                                              │
+  └────────────────────────────────────────────┘
+```
+
+**The spectrum of agentness**:
+
+```
+  LEVEL 0: chat
+  ──────────────
+  You ──▶ LLM ──▶ answer
+  (no tools, no loop)
+
+  LEVEL 1: single tool call
+  ──────────────────────────
+  You ──▶ LLM ──▶ "call calculator(2+2)" ──▶ 4 ──▶ "The answer is 4."
+  (one hop)
+
+  LEVEL 2: multi-step chain
+  ──────────────────────────
+  You ──▶ LLM ──▶ tool 1 ──▶ observation ──▶ LLM ──▶ tool 2 ──▶ ... ──▶ answer
+  (sequential planning)
+
+  LEVEL 3: self-correcting
+  ─────────────────────────
+  LLM tries → fails → sees error → retries → succeeds
+  (can recover)
+
+  LEVEL 4: autonomous long-horizon
+  ─────────────────────────────────
+  LLM plans hours of actions, executes, iterates, maintains state.
+  (research frontier - Devin, Cursor, etc. are exploring this)
+
+  Most "agents" shipped today: Level 1-2.
+  Level 3 emerging (Claude code, Cursor).
+  Level 4 still aspirational.
+```
+
+**The tiny-agent in 30 lines**:
+
+```python
+import json
+from openai import OpenAI
+
+client = OpenAI()
+
+def search_web(query):
+    # imagine this uses DDG or Google
+    return f"[search results for: {query}]"
+
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "search_web",
+        "description": "Search the web for current info.",
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+    }
+}]
+
+messages = [{"role": "user", "content": "What's AI news this week?"}]
+
+while True:
+    r = client.chat.completions.create(
+        model="gpt-4o-mini", messages=messages, tools=tools,
+    )
+    msg = r.choices[0].message
+    messages.append(msg.model_dump())
+
+    if not msg.tool_calls:
+        print(msg.content)
+        break
+
+    for tc in msg.tool_calls:
+        args = json.loads(tc.function.arguments)
+        result = search_web(args["query"])
+        messages.append({
+            "role": "tool", "tool_call_id": tc.id, "content": result
+        })
+```
+
+**The ReAct pattern, visually**:
+
+```
+  User: "What's the weather in Paris?"
+       │
+       ▼
+  Thought: "I need to call a weather tool."
+       │
+       ▼
+  Action: get_weather(city="Paris")
+       │
+       ▼
+  Observation: "18°C, partly cloudy"
+       │
+       ▼
+  Thought: "I have the answer now."
+       │
+       ▼
+  Final Answer: "The weather in Paris is 18°C, partly cloudy."
+
+  The structured Thought/Action/Observation loop.
+  Enables the LLM to plan and chain operations.
+```
+
+**Why now? (a timeline)**:
+
+```
+  Capability gate                        Opened by
+  ────────────────────                   ────────────────────
+  LLMs smart enough to call tools        GPT-3.5 / Claude 1  (late 2022)
+  Function calling APIs standardized     OpenAI (June 2023)
+  Context long enough (100K+)             GPT-4-Turbo (late 2023)
+  Reasoning models emerged                o1, R1 (late 2024)
+  Cross-provider tool standard             MCP (Anthropic, Nov 2024)
+
+  → Agentic AI became practical ~2023.
+  → Became mainstream ~2024.
+  → We're in the "useful but unreliable" era now (2026).
+```
+
+**When to agent vs when not**:
+
+```
+  USE agent patterns when:
+    ✓ Task requires EXTERNAL info (search, database, API)
+    ✓ Task requires ACTIONS (send email, write file)
+    ✓ Task has MULTIPLE STEPS that depend on each other
+    ✓ Task requires REASONING about tool results
+
+  DON'T use when:
+    ✗ Simple question with 1-shot answer
+    ✗ Retrieval could solve it (just use RAG)
+    ✗ Fixed workflow (use explicit code, not LLM)
+    ✗ Low reliability acceptable (agents add failure modes)
+```
+
+**Agent building blocks**:
+
+```
+  To build an agent, you need:
+
+  1. LLM API or local model
+  2. Tool definitions (JSON Schema)
+  3. Tool implementations (Python functions)
+  4. Loop runner (~30 lines)
+  5. Error handling (tool fails, LLM outputs bad JSON)
+  6. Logging (trace every action for debugging)
+  7. Budget guards ($ cap, step cap, time cap)
+  8. (Optional) Memory
+  9. (Optional) Safety layer (confirmation for dangerous actions)
+
+  You can start with just 1-5. Add 6-9 as you scale.
+```
+
+**Common agent types**:
+
+```
+  Research agent:          search → summarize → answer
+  Code agent:              read → modify → run → test → iterate
+  Data analyst:            upload CSV → explore → visualize → explain
+  Customer support:        RAG over docs → answer with citations
+  Web scraper:             browse → extract → output structured data
+  Scheduler:                understand → check calendar → book
+```
+
+Each is a different combination of LLM + tools. Core pattern is the same.
+
+**Real agents shipping in 2026**:
+
+```
+  Consumer-facing:
+    - Cursor (code editor with AI agents)
+    - Claude Code (Anthropic's code agent)
+    - ChatGPT code interpreter (data analyst)
+    - GitHub Copilot Workspace
+
+  Research:
+    - Devin (Cognition): autonomous SWE agent
+    - AutoGPT, BabyAGI (early demos, now superseded)
+    - LangChain + OpenAI Assistants API
+
+  Enterprise:
+    - custom RAG-chatbots over company docs
+    - customer support automation
+    - business intelligence agents (text-to-SQL)
+```
+
+**The reliability challenge**:
+
+```
+  Today's agents:
+    ✓ Simple, narrow tasks: 90% reliable
+    ✓ Multi-step in familiar domains: 60-80% reliable
+    ✗ Novel long-horizon tasks: 20-40% reliable
+
+  Unreliability sources:
+    - LLM confabulation (invented facts)
+    - Tool errors (API down, bad JSON output)
+    - Loop getting stuck (same action repeated)
+    - Context overflow (forgets earlier steps)
+    - Misinterpreted instructions
+
+  → Real agents need monitoring, retries, human escalation.
+```
+
 ## What to read
 
 - OpenAI's function calling docs: https://platform.openai.com/docs/guides/function-calling

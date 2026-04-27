@@ -138,6 +138,299 @@ Answer:"""
 
 That's the RAG prompt. Send to LLM. Get answer.
 
+## Visualize this
+
+**The full RAG pipeline**:
+
+```
+  ┌──────────────────┐
+  │  documents        │
+  │  (PDFs, markdown,  │
+  │   code, etc.)     │
+  └─────────┬────────┘
+            │
+            ▼  (offline, one-time)
+  ┌──────────────────┐
+  │   chunker         │  split into 200-500 token chunks
+  └─────────┬────────┘
+            │
+            ▼
+  ┌──────────────────┐
+  │  embedder         │  convert each chunk → vector
+  │  (text-embedding-3)│
+  └─────────┬────────┘
+            │
+            ▼
+  ┌──────────────────┐
+  │  vector DB        │  stored embeddings
+  │  (FAISS, Chroma,  │
+  │   Pinecone, ...)  │
+  └─────────┬────────┘
+            ·
+            ·   (your knowledge base is ready)
+            ·
+            ▼  (online, per query)
+       user query
+            │
+            ▼
+  ┌──────────────────┐
+  │  embed query      │
+  └─────────┬────────┘
+            │
+            ▼
+  ┌──────────────────┐
+  │  nearest neighbor │  find top-k similar chunks
+  │  search            │
+  └─────────┬────────┘
+            │
+            ▼
+  top-k chunks ── prepended ──┐
+                               │
+                               ▼
+                       ┌──────────────┐
+                       │    LLM       │ reads context,
+                       │              │ answers grounded
+                       └──────┬───────┘  in retrieved text
+                              │
+                              ▼
+                          final answer
+                       (with citations)
+```
+
+**Why chunking size matters**:
+
+```
+  Too small (50 tokens):
+    ┌─────┐┌─────┐┌─────┐┌─────┐
+    │chunk││chunk││chunk││chunk│ ← loses context across chunks
+    └─────┘└─────┘└─────┘└─────┘   "the mo" ←→ "del" may be split!
+    Many irrelevant matches.
+
+  Good (200-500 tokens):
+    ┌──────────────┐┌──────────────┐
+    │ coherent      ││ coherent     │
+    │ paragraph     ││ paragraph    │
+    └──────────────┘└──────────────┘
+    Preserves ideas, retrievable.
+
+  Too big (2000+ tokens):
+    ┌─────────────────────────────┐
+    │ entire section               │  ← each match has 80% unrelated info
+    │                              │    LLM gets distracted
+    └─────────────────────────────┘
+```
+
+**Chunking with overlap** (why):
+
+```
+  Imagine this text:
+    "... the transformer architecture uses attention.
+     Multi-head attention allows ..."
+
+  Without overlap (may split):
+    chunk 1: "... the transformer architecture uses attention."
+    chunk 2: "Multi-head attention allows ..."
+    (query about "multi-head attention in transformer" → only matches chunk 2)
+
+  With 50-token overlap:
+    chunk 1: "... the transformer architecture uses attention. Multi-head"
+    chunk 2: "uses attention. Multi-head attention allows ..."
+    (query matches BOTH chunks, gets full context)
+```
+
+**Vector search, geometrically**:
+
+```
+  Embedding space (visualized in 2D, real is 768+ dimensions):
+
+         │             ● chunk about "cats"
+         │       ● chunk about "pets"  ● chunk about "dogs"
+         │
+         │               ● YOUR QUERY: "my fluffy pet"
+    dim 2│               ← compute distance to all chunks
+         │
+         │  ● chunk about "cars"
+         │                    ● chunk about "trucks"
+         │
+         │               ● chunk about "cooking"
+         │
+         └──────────────────────── dim 1
+
+  Nearest neighbors to query (by cosine similarity):
+    1. chunk about "pets"     (very close)
+    2. chunk about "cats"     (close)
+    3. chunk about "dogs"     (close)
+    4. chunk about "cars"     (far - different topic)
+
+  Return top-k (e.g., k=3) and feed to LLM.
+```
+
+**Hybrid search (vector + keyword)**:
+
+```
+  Query: "What are the symptoms of DVT-443 syndrome?"
+
+  Vector search alone:
+    ✓ Finds: "circulatory symptoms", "deep vein issues"
+    ✗ Misses: exact "DVT-443" mentions (semantic approximation)
+
+  Keyword (BM25) search alone:
+    ✓ Finds: all DVT-443 literal mentions
+    ✗ Misses: synonyms like "deep vein thrombosis disorder 443"
+
+  Hybrid:
+    Merge both result lists (reciprocal rank fusion)
+    ✓ Gets both semantic AND exact matches
+
+  Rule: ALWAYS do hybrid for serious RAG systems.
+```
+
+**Reranking (the last-mile optimization)**:
+
+```
+  Stage 1: retrieve 20-50 candidates (cheap, fast)
+  Stage 2: rerank with cross-encoder (slow but precise)
+  Stage 3: keep top 3-5 for the LLM
+
+  Cross-encoder (rerank model) sees:
+    input: (query, chunk)
+    output: scalar "how relevant?" 0-1
+
+  Slow: can't precompute (unlike vector embed).
+  Must run per (query, chunk) at query time.
+
+  But ONLY on top 20-50, not millions.
+  → Worth it. Improves accuracy ~10-20%.
+
+  Popular rerankers:
+    Cohere Rerank 3 (API)
+    BAAI/bge-reranker-large (open)
+    mxbai-rerank-large-v1 (open)
+```
+
+**Contextual retrieval (Anthropic's 2024 trick)**:
+
+```
+  Problem: chunks lose their context.
+
+  Original chunk: "The refund is 30 days."
+    (Refund of what? For what product?)
+
+  Solution: rewrite chunks with context BEFORE embedding.
+
+  Enhanced chunk: "This chunk is from the Pro subscription refund
+                   policy page. Original content: 'The refund is 30 days.'"
+
+  Now the embedding captures both.
+  → Retrieval quality up 20-40%.
+
+  Cost: a cheap LLM rewrites every chunk once.
+  Pays off many queries later.
+```
+
+**Minimal RAG** (~60 lines, actually runs):
+
+```python
+import faiss, numpy as np
+from openai import OpenAI
+from pathlib import Path
+
+client = OpenAI()
+
+def embed(text):
+    r = client.embeddings.create(input=[text], model="text-embedding-3-small")
+    return r.data[0].embedding
+
+# 1. Load + chunk
+chunks = []
+for path in Path("my_docs").glob("*.md"):
+    text = path.read_text()
+    for i in range(0, len(text), 450):
+        chunks.append(text[i:i+500])
+
+# 2. Embed all chunks
+embs = np.array([embed(c) for c in chunks]).astype("float32")
+
+# 3. Build index
+index = faiss.IndexFlatL2(embs.shape[1])
+index.add(embs)
+
+# 4. Answer query
+def answer(q):
+    qv = np.array([embed(q)]).astype("float32")
+    _, ids = index.search(qv, k=3)
+    context = "\n\n".join(chunks[i] for i in ids[0])
+
+    r = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user",
+                   "content": f"Context:\n{context}\n\nQuestion: {q}\nAnswer:"}]
+    )
+    return r.choices[0].message.content
+
+print(answer("How do I return a product?"))
+```
+
+~60 lines. Production-ish RAG over your own docs.
+
+**Cost & performance reference**:
+
+```
+  Embedding: text-embedding-3-small (OpenAI)
+    $0.02 per 1M tokens input
+    → ~$0.10 to embed a 100-page book (first time)
+    → negligible for queries
+
+  Storage: FAISS local
+    ~4KB per chunk for 1536-dim vector
+    → 1M chunks = 4 GB RAM (fits easily)
+
+  Query latency:
+    embed query:       ~200ms (API call)
+    vector search:      ~1-10ms (FAISS)
+    rerank (if used):   ~100-300ms
+    LLM generation:     ~500-1500ms
+    ────────────────    ─────────────
+    Total:              ~1-2 seconds
+
+  Cost per query:
+    query embed:    ~$0.0001
+    LLM (gpt-4o-mini, 2000 tokens): ~$0.0003
+    ─────
+    ~$0.0004 per query = $1 per 2500 queries
+```
+
+**When RAG wins vs loses**:
+
+```
+  RAG WINS:
+    ✓ Well-scoped knowledge base (your docs, product catalog)
+    ✓ Answers in a single chunk or small set
+    ✓ Up-to-date info needed
+    ✓ Multiple users, shared knowledge
+
+  RAG LOSES:
+    ✗ Synthesis across MANY documents ("summarize everything")
+    ✗ Numerical / tabular data (use SQL / data analyst agent)
+    ✗ Complex multi-step reasoning (LLM alone, or agents)
+    ✗ Small corpus + frequent changes (long-context LLM may work better)
+```
+
+**The "long context alternative"**:
+
+```
+  If your corpus < 1M tokens AND you query rarely:
+    Consider: paste everything into a 1M-context LLM (Gemini 1.5, 2.0).
+    Cost per query: higher ($5-10)
+    Quality: often BETTER than RAG (no retrieval loss)
+    Latency: slower (~30-60 sec)
+
+  If corpus > 1M tokens OR you query often:
+    Use RAG.
+    Pay embedding cost once.
+    Pay tiny query cost each time.
+```
+
 ## Advanced RAG techniques
 
 ### Hybrid search (vector + keyword)
