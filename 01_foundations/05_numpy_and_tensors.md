@@ -26,6 +26,9 @@ Run this. Play. NumPy has been the scientific-Python foundation for 25+ years; P
 
 ## PyTorch tensors (the ML-grade version)
 
+<div data-viz="tensor_shapes"></div>
+*Pick dimensions (B, T, C); see the 3-D tensor rendered as cubes.*
+
 ```python
 import torch
 

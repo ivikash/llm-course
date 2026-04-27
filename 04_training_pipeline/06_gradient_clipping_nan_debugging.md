@@ -214,6 +214,19 @@ Preserves direction, bounds magnitude.
 
 **Healthy vs unhealthy training curves**:
 
+```viz
+{"viz": "training_curve_simulator"}
+```
+
+Slide the LR factor from 0.1 to 5. Watch the shape change:
+- LR 0.2 → slow, hasn't plateaued (undertrained).
+- LR 1.0 → clean exponential decay, nice plateau (healthy).
+- LR 3.0 → oscillations (unstable).
+- LR 4.0 → diverges (loss explodes).
+- Multiple seeds with noise → see variance in the curves.
+
+This is **exactly the dashboard you'll stare at for weeks** while training.
+
 ```
   Healthy:
     loss

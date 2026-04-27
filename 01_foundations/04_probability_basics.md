@@ -72,6 +72,9 @@ logits = logits[:, -1, :] / temperature
 probs = F.softmax(logits, dim=-1)
 ```
 
+<div data-viz="softmax_temperature"></div>
+*Slide the temperature; see how the distribution sharpens or flattens.*
+
 ## Cross-entropy: measuring how wrong the distribution is
 
 Suppose the correct next word is "mat" (call it token index 47). The model outputs a probability distribution over 50257 tokens. How do we score it?
@@ -90,6 +93,9 @@ loss = -log(probability_assigned_to_correct_token)
 - If the model gave ~0% to the right answer: `-log(0.0001) ≈ 9.2`. Really bad.
 
 This is **cross-entropy loss**.
+
+<div data-viz="cross_entropy"></div>
+*Slide the probability assigned to the true class; loss explodes as it approaches 0.*
 
 In practice, PyTorch provides `F.cross_entropy(logits, targets)` which does softmax + negative log in one numerically-stable call. It's the standard loss for classification and language modeling.
 

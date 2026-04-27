@@ -6,6 +6,12 @@ You built a bigram model by counting pairs (Lesson 0.3). Now build the same idea
 
 Train a model that, given one character, outputs a probability distribution over the next character. Same goal as Lesson 0.3's bigram model. But this time, the probabilities come from a trainable weight matrix, not a lookup of counts.
 
+<div data-viz="bigram_heatmap"></div>
+*The transition matrix for a real bigram model. Bright cells = common next-char.*
+
+<div data-viz="bigram_generator"></div>
+*Pick a seed character and watch the model sample a sequence.*
+
 **The weight matrix** `W` has shape `(vocab_size, vocab_size)`. `W[i, j]` = logit for next char being `j` given current char is `i`. Softmax each row to get probabilities.
 
 Training: cross-entropy loss + gradient descent. The result will be equivalent to counting pairs, but via a completely different route - the route that scales to GPT.

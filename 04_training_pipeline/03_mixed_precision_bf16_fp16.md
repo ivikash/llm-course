@@ -113,6 +113,14 @@ Relevant for Module 5's serving section.
 
 ## Visualize this
 
+**Float formats compared visually:**
+
+```viz
+{"viz": "float_formats"}
+```
+
+Hover each format. See the sign/exponent/mantissa bit split. Notice bf16 has fp32's exponent width (same range) with only 7 mantissa bits (lower precision) — that's why it's the modern default.
+
 **Float format bits**:
 
 ```

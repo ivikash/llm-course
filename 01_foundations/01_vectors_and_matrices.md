@@ -75,6 +75,9 @@ print((a*b).sum())  # same thing
 
 The dot product measures how aligned two vectors are. Big positive = pointing similar direction. Zero = perpendicular. Negative = opposite. This is the basis of the **attention** mechanism - attention literally computes dot products between "query" vectors and "key" vectors. We'll get there.
 
+<div data-viz="vector_dot_product"></div>
+*Drag the vector tips; watch the dot product and angle update.*
+
 ## What vectors actually represent
 
 Here's the payoff concept: in neural nets, we represent *anything* - a word, an image patch, a user profile - as a vector of numbers. Then similar things end up having similar vectors (after training).

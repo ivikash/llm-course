@@ -150,6 +150,14 @@ Also uses per-parameter-group LRs - embedding and head get different LR than the
 
 **Plot nanoGPT's schedule yourself**:
 
+```viz
+{"viz": "lr_schedule"}
+```
+
+Slide every knob. See warmup ramp, peak, cosine decay. nanoGPT's defaults: max_lr=6e-4, min_lr=6e-5, warmup=2000, total=600000.
+
+Or with matplotlib:
+
 ```python
 import math
 import matplotlib.pyplot as plt

@@ -16,6 +16,9 @@ That's it.
 
 ## Visualizing it
 
+<div data-viz="matmul_animated"></div>
+*Click a cell in the output to see which row/column dot product produced it.*
+
 Let `A` be 2x3 and `B` be 3x2:
 
 ```

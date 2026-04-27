@@ -20,6 +20,9 @@ Visualize it: the derivative is the **slope of the function's graph** at that po
 
 ## Why we care: gradient descent
 
+<div data-viz="gradient_descent"></div>
+*Adjust learning rate and starting point; watch the ball roll (or diverge).*
+
 Here's the magic connection. Suppose you have some function `L(w)` that depends on a weight `w`, and you want to find the `w` that makes `L` as small as possible. (`L` stands for "loss" - the thing you want to minimize.)
 
 If `dL/dw > 0` at your current `w`, it means increasing `w` increases `L`. So to decrease `L`, you should decrease `w`.
