@@ -176,6 +176,138 @@ If most are "yes": keep going.
 
 If mixed: decision needed soon.
 
+## Visualize this
+
+**The "cost to kill" over time**:
+
+```
+  Cost of killing a project vs when you kill it:
+
+  Effort/emotional/political cost
+   │                                                 ●  (huge: whole org)
+   │                                              ●
+   │                                         ●
+   │                                     ●
+   │                                 ●
+   │                             ●
+   │                         ●
+   │                     ●
+   │                 ●
+   │             ●
+   │         ●            ← by month 3: reasonable, still painful
+   │      ●
+   │    ●
+   │   ●                  ← by week 4: easy
+   │ ●                   ← week 1: trivial
+   └─────────────────────────────────────── time
+
+  The longer a project runs, the harder to kill.
+  Biggest leadership skill: killing early.
+```
+
+**Kill criteria, pre-committed**:
+
+```
+  BAD (no kill criteria):
+    "We'll just keep iterating until it works."
+    → Projects zombie-shuffle for years.
+
+  GOOD (explicit kill criteria):
+
+  ┌──────────────────────────────────────────┐
+  │ Project: "Add RL phase to improve chat"  │
+  │                                           │
+  │ Budget: $20K compute, 6 weeks             │
+  │                                           │
+  │ Kill criteria (any ONE triggers):          │
+  │  1. Week 2 baseline runs show < 1% gain   │
+  │  2. Week 4 experiments all regress MMLU    │
+  │  3. Compute overrun > 1.5× budget           │
+  │  4. Team confidence (2 senior folks) < 30% │
+  │                                           │
+  │ Escalate-to-kill-review:                   │
+  │  - Lead researcher + EM + 1 outside reviewer│
+  │  - Monday 9am meeting                       │
+  │                                           │
+  │ Kill decision is FAST after criteria hit. │
+  └──────────────────────────────────────────┘
+```
+
+**Signs a project should die**:
+
+```
+  Obvious (but often ignored):
+    ✗ Main metric hasn't moved in 3+ weeks
+    ✗ Compute budget blown past
+    ✗ Team has lost conviction
+    ✗ Better alternative published externally
+
+  Subtle (easier to rationalize):
+    ✗ Each week's findings contradict last week's
+    ✗ Scope keeps expanding
+    ✗ Nobody can clearly articulate "why this matters"
+    ✗ Leadership asks weekly; team answers vaguely
+
+  Warning: if you're saying any of these, it's dead.
+    "We just need one more experiment."
+    "Let's give it another sprint."
+    "Almost there."
+    "Pivoting the goal slightly."
+```
+
+**The postmortem template (after every killed project)**:
+
+```markdown
+  # Project X Postmortem
+
+  ## TL;DR
+  What happened: [one sentence]
+  What we learned: [one sentence]
+
+  ## Original goal
+  [what you set out to do]
+
+  ## Timeline
+  Week 1: [what happened]
+  Week 2: [what happened]
+  ...
+
+  ## What worked
+  - ...
+
+  ## What didn't work
+  - ...
+
+  ## Why we killed it
+  - [specific signal from kill criteria]
+
+  ## What we'd do differently
+  - [scoping mistake? bad bet?]
+
+  ## Reusable artifacts
+  - [code we salvaged]
+  - [data we kept]
+
+  ## Open questions for future work
+  - [what's still worth investigating?]
+```
+
+A clean postmortem makes the death productive. The org now knows what not to try again.
+
+**Projects that should NOT be killed**:
+
+```
+  Sometimes you're tempted to kill but shouldn't:
+
+  ✓ Long-horizon basic research (measured in years, not weeks)
+  ✓ Work that's de-risking a future project
+  ✓ Projects ~1 week from a big commit
+  ✓ Someone's first project (preserve learning)
+
+  Judgment call. Err on side of "letting hot things cool" vs
+  "thrashing between projects".
+```
+
 ## Exercises
 
 1. For a project you're currently working on (at work or personal): write the 1-page brief retroactively. Be honest.

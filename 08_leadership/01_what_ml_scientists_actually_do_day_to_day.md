@@ -153,6 +153,158 @@ Skip these:
 - "Networking events" without substance.
 - Reading without doing.
 
+## Visualize this
+
+**A week in the life, by the numbers**:
+
+```
+  Hours per week (40-hour baseline):
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │ Coding / debugging           ████████████████████████  14h  │
+  │ Reading (papers, code, Slack) ████████████████         8h   │
+  │ Meetings                      ████████████              6h   │
+  │ Writing (docs, memos)          ████████                 4h   │
+  │ Thinking / walking             ████                     4h   │
+  │ PR reviews / mentoring         ████                     2h   │
+  │ Admin (hiring, planning)       ██                       2h   │
+  └─────────────────────────────────────────────────────────────┘
+
+  What people imagine:
+   "AI researcher" = whiteboarding genius ideas 90% of the time
+
+  Reality:
+   Most hours are staring at wandb loss curves and debugging shape errors.
+```
+
+**The "research velocity" curve**:
+
+```
+  Experiments per week, over career:
+
+         junior                 senior             principal
+        ▀                      ▀▀▀▀▀▀▀▀▀▀▀▀      ▀▀▀▀▀
+        1-3                      10-20              5-10
+                                                   (more mentoring)
+
+         What improves it:
+         - Better tooling muscle memory
+         - Strong prior intuitions (know what NOT to try)
+         - Reusable experiment templates
+         - Clearer hypothesis formation
+```
+
+**A typical day**:
+
+```
+  9:00 am   - Check overnight runs on wandb
+  9:15      - One or two crashed, restart
+  9:30      - Read arXiv daily, skim 3 new papers
+  10:00     - Coding: implement yesterday's debugging insight
+  11:00     - 1:1 with teammate
+  11:30     - Coding continued
+  12:30 pm  - Lunch
+  1:30      - Launch new runs
+  2:00      - While runs compute: write up last week's finding
+  3:30      - Code review for junior teammate
+  4:00      - Deep work: tackle hard problem, walking helps
+  5:30      - Check runs again, adjust or launch more
+  6:00      - Commit, go home
+
+  Many variations. Common thread:
+  - Runs are always running in the background.
+  - You're not always "typing code".
+  - Writing and thinking take real time.
+```
+
+**Senior vs junior: what differs**:
+
+```
+  Task                  Junior          Senior
+  ────────────────────  ────────────    ────────────
+  Pick experiment        wanders a bit   laser-focused
+  Runtime of experiment  4-8 hours       10 min → 8 hours, scaled
+  Interpretation         sometimes wrong  rapid, usually right
+  Time debugging         sometimes days  usually hours
+  Writeup                long, defensive  short, confident
+  Knowing when to stop   rarely          often
+
+  Develops over 2-5 years of deliberate practice.
+```
+
+**The "why ML feels slow" curve**:
+
+```
+  Tasks per day:
+
+  Junior:
+    Day 1: ...debug data loader...
+    Day 2: ...still data loader...
+    Day 3: launch run!
+    Day 4: run crashed, debug
+    Day 5: run works but loss is weird
+    Day 6: debug weird loss
+    Day 7: aha, fixed, relaunch
+  End of week: 1 experiment run.
+
+  Senior:
+    Day 1: run small baseline (1 hour, done)
+    Day 1 cont.: run 5 small variants in parallel
+    Day 2: analyze, pick best
+    Day 3: scale up winner, run next small variants
+    Day 4-5: same pattern
+  End of week: 30+ experiments run, 3-5 meaningful insights.
+
+  This is what "research velocity" looks like.
+```
+
+**Karpathy's research log** (from `nanochat/dev/LOG.md`):
+
+```
+  Real excerpt (paraphrased, showing structure):
+
+  2026-02-05: bumped total batch to 1M tokens
+  - hypothesis: larger batch should help MFU
+  - observation: tok/sec improved but val BPB slightly higher
+  - decision: keep the change, small BPB hit worth the speed
+  - next: test at d26 to confirm
+
+  2026-02-08: tried SwiGLU init scaling
+  - hypothesis: better init might help early training
+  - observation: no measurable difference
+  - decision: drop the change
+  - next: try attention gating variants
+```
+
+Dated entries, structured (hypothesis → observation → decision → next), short.
+This is the template to adopt.
+
+**Mistakes juniors make**:
+
+```
+  1. Running one big definitive experiment:
+     "I'll run GPT-2 for 3 days then see if my idea works!"
+     → 3 days gone, 1 bit of info learned.
+     Fix: small experiments first. Scale only what works.
+
+  2. Attached to hypotheses:
+     "This didn't work, but if I tweak it... and this... and..."
+     Fix: give it 2 small runs. If no signal, pivot.
+
+  3. Skipping the writeup:
+     "I ran 20 experiments, now I'm moving on."
+     6 months later: remember nothing.
+     Fix: 5-line log entry per experiment. In the moment.
+
+  4. Reading too much, doing too little:
+     Endless arxiv, no code.
+     Fix: one paper read, followed by at least 30 min of related coding.
+
+  5. Perfection over velocity:
+     Spend 3 days polishing a 10-line change.
+     Fix: ship ugly, iterate.
+```
+
 ## Exercises
 
 1. Check your own time allocation. For the last week: what % was coding, what % reading, what % thinking, what % meetings? Most people are out of balance. Adjust.

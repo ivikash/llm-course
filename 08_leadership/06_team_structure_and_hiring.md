@@ -190,6 +190,189 @@ Pure positional power rarely makes good ML leaders. Influence does.
 - "Crunching" is normalized.
 - Team stratifies into "genius" and "implementers."
 
+## Visualize this
+
+**A healthy ML team org structure (size 10-15)**:
+
+```
+                  Research Lead
+                       │
+       ┌───────────────┼───────────────┬───────────────┐
+       │               │               │               │
+    Research       Research       Research       Research
+    Scientist      Scientist      Engineer       Engineer
+    (PhD, ideas)   (PhD, ideas)   (systems)      (infra)
+       │               │               │               │
+       └───────────────┴───────────────┴───────────────┘
+                            │
+                  ┌─────────┼─────────┐
+                  │         │         │
+             Data Eng    Eval Eng   ML PM
+             (pipelines) (benchmarks)(product)
+
+  ~1 lead + 2 scientists + 2 engineers + 1 data + 1 eval + 1 PM = 8
+  Good ratio: scientists/engineers roughly 1:1 (not 3:1!)
+```
+
+**Roles and what they do day-to-day**:
+
+```
+  Research Scientist (RS):
+    - Generates hypotheses
+    - Designs experiments
+    - Writes papers / memos
+    - Usually PhD background
+    - Day: coding + writing + reading
+
+  Research Engineer (RE):
+    - Builds training infrastructure
+    - Debugs perf issues
+    - Writes tooling
+    - Strong software engineering
+    - Day: coding + debugging + reviewing
+
+  Data Engineer:
+    - Builds data pipelines
+    - Quality filtering, dedup
+    - Often overlooked; huge impact
+    - Day: SQL + distributed systems + LLM data quality
+
+  Eval Engineer:
+    - Builds and maintains eval suite
+    - Runs benchmarks, interprets
+    - Red-teams models
+    - Day: datasets + metrics + reports
+
+  ML Product Manager:
+    - Translates biz needs to evals
+    - Manages release coordination
+    - Protects research time
+    - Day: meetings + docs + prioritization
+```
+
+**Interview signals (green vs red flags)**:
+
+```
+  Green flags (hire):
+    ✓ Can articulate a failed project and what they learned
+    ✓ Strong opinion on a debate (MoE vs dense, etc.) backed by experience
+    ✓ GitHub with real, shippable projects
+    ✓ Asks you thoughtful questions
+    ✓ Says "I don't know" comfortably
+    ✓ Specific about past work ("I tuned X from 0.42 to 0.51 on Y")
+    ✓ Curious, quick to connect ideas
+
+  Red flags (don't hire):
+    ✗ Can't name a project weakness
+    ✗ Dismisses others' work without technical critique
+    ✗ Leetcode-perfect but can't explain their past ML work
+    ✗ Buzzword-heavy but details thin
+    ✗ No GitHub / no published work at all
+    ✗ Hostile to feedback
+    ✗ All claims are generic ("built an LLM model")
+```
+
+**A good ML take-home test**:
+
+```
+  Task (4-8 hours):
+    "Given the nanoGPT Shakespeare config, propose one
+     architectural change and test whether it improves
+     val loss on that dataset. Submit:
+     - Your modified code (as a PR-style diff)
+     - A 1-page writeup of your hypothesis, setup, and results
+     - Commentary on what you'd do next with more time."
+
+  What this tests:
+    ✓ Can they code? (diff quality)
+    ✓ Do they follow the research loop? (writeup structure)
+    ✓ Are they scientific? (seeds, ablations)
+    ✓ Communication? (1-page vs 5-page)
+    ✓ Taste? (which change did they pick?)
+    ✓ Honesty? (do they report failures?)
+
+  Better than any Leetcode interview for ML roles.
+```
+
+**Research culture: healthy signs vs unhealthy signs**:
+
+```
+  Healthy:
+    ✓ Junior researcher pushes back on senior, respectfully. Both update.
+    ✓ Someone says "I was wrong about X" in a meeting. No shame.
+    ✓ Killed projects discussed openly, post-mortemed.
+    ✓ Everyone reads each other's memos.
+    ✓ "Show don't tell" - results in plots, not claims.
+    ✓ Tight feedback loop on PRs.
+    ✓ Work-life boundaries respected.
+
+  Unhealthy:
+    ✗ Senior person's ideas always win regardless of evidence.
+    ✗ Nobody mentions failures. Shiny demos only.
+    ✗ "Crunching" is routine.
+    ✗ Dead projects keep getting resources.
+    ✗ Juniors never speak up in meetings.
+    ✗ Team stratified into "geniuses" and "implementers".
+    ✗ High turnover.
+```
+
+**Team diversity (more important than it sounds)**:
+
+```
+  Good team has diverse:
+    Backgrounds:    industry vs academia
+    Experience:     senior mentors + junior builders
+    Specialties:    systems + science + data + eval
+    Problem-solving styles: bottom-up coders + top-down thinkers
+    Identity:       gender, race, culture (brings different heuristics)
+
+  Anti-pattern:
+    Entire team is "ex-DeepMind PhDs" → echo chamber
+    Entire team is "self-taught builders" → no first-principles
+    All men or all women → biased product
+    Everyone from same lab → same blind spots
+```
+
+**Growing vs hiring**:
+
+```
+  When to GROW someone internally:
+    ✓ Reliably delivers on current scope
+    ✓ Seeks feedback, applies it
+    ✓ Mentors juniors informally already
+    ✓ Has strong opinions from experience
+
+  When to HIRE externally:
+    ✓ Need specific expertise team lacks
+    ✓ No internal candidate for the role (in 1 year)
+    ✓ Adding, not replacing
+    ✓ Want cultural infusion
+
+  Rule: grow when you can, hire when you must.
+  Promoting someone is often worth 2-3 external hires.
+```
+
+**The "firing" reality**:
+
+```
+  Hard truth: you will occasionally need to let people go.
+
+  Reasons that DO justify firing:
+    - Consistent underperformance after feedback (3+ months)
+    - Toxic to team culture (brilliant jerk syndrome)
+    - Wrong role fit (offer to move or let go compassionately)
+    - Illegal / unethical behavior
+
+  Reasons that DON'T:
+    - One bad quarter
+    - Disagrees with you on technical direction
+    - Is introverted / not charismatic
+    - Isn't promoted "fast enough"
+
+  Lazy firing is slow and hurts teams.
+  Compassionate, decisive firing is respect.
+```
+
 ## Exercises
 
 1. Draw your current team's org. Roles, seniorities. Any gaps?

@@ -137,6 +137,212 @@ Healthy version:
 - **Openness**: willing to try the opposite of your prior.
 - **Charity**: try hard to find what's right about disagreements.
 
+## Visualize this
+
+**Taste, as a feedback loop**:
+
+```
+  ┌─ observe the field ────┐
+  │   read papers, watch   │
+  │   other researchers    │
+  │   ↓                    │
+  │ ─── form priors        │
+  │                        │
+  │ ─── experiment         │ ← this is the key step
+  │   predict outcome      │   where taste is trained
+  │   run, observe         │
+  │   outcome vs prediction │
+  │   ↓                    │
+  │ ─── update priors      │
+  │   (where were you    │
+  │   right? wrong?)       │
+  │                        │
+  │ ─── over time →        │
+  │   accurate predictions  │
+  │   = good taste         │
+  └───────────────────────┘
+
+  Taste is a calibrated predictive model. Build it by closing
+  prediction-observation loops often.
+```
+
+**The taste curve over career**:
+
+```
+  Prediction accuracy on "will this work?"
+   │
+   │                                    ●  (senior: 70%+ accurate
+   │                                        on experiments in their domain)
+   │                              ●
+   │                        ●
+   │                  ●
+   │              ●
+   │          ●
+   │        ●   (mid: 50% accurate)
+   │      ●
+   │    ●
+   │   ●         ← (junior: 20-30%, barely above noise)
+   └───────────────────────────────────── years of experience
+     0    2    4    6    8    10
+```
+
+**Signs of good taste (vs bad)**:
+
+```
+  Good taste shows up as:
+    ✓ Predicting which papers will be cited in 2 years
+    ✓ Naming what's wrong with a proposed method in 30 seconds
+    ✓ Killing your own projects quickly
+    ✓ Picking specifically which experiment to run first
+    ✓ Discerning 1% improvements that matter from 1% that don't
+
+  Bad taste shows up as:
+    ✗ Chasing whatever's on Twitter this week
+    ✗ Excited about tiny benchmark gains
+    ✗ Mistaking complexity for sophistication
+    ✗ Overtrusting your heroes, undertrusting yourself
+    ✗ Thinking "more params = better"
+```
+
+**Developing taste: the practice**:
+
+```
+  Week 1-2:
+  ─────────
+  Read 5 papers. For each:
+    - BEFORE reading methodology, predict from abstract:
+      "I think this will work" / "I think this won't"
+    - Predict what ablations they'll need.
+    - After reading, check your predictions.
+
+  Month 1:
+  ─────────
+  Pick 10 open questions in your field.
+  Write your gut answer for each.
+  Revisit in 6 months; score yourself.
+
+  Year 1:
+  ───────
+  Track your predictions about the field.
+  "Model X will saturate benchmark Y by date Z."
+  Check accuracy at year end.
+
+  Continuous:
+  ───────────
+  For every experiment you design, predict outcome BEFORE running.
+  Keep a track record. Your calibration is your taste.
+```
+
+**Taste ≠ being right always**:
+
+```
+  Good-taste researcher is wrong a lot.
+  The difference:
+    ✓ Knows she's about to be wrong
+    ✓ Designs experiments that surface being wrong cheaply
+    ✓ Updates quickly when new evidence comes
+    ✓ Keeps exploring after being wrong, not wounded
+
+  Bad taste: holds strong views forever regardless of evidence.
+  Good taste: strong opinions, loosely held.
+```
+
+**Learning taste from exemplars**:
+
+```
+  Find 3-5 researchers whose taste you respect.
+
+  For each:
+    Study their most famous paper. What framing choice did they make?
+    Watch their talks. How do they ask questions?
+    Read their blog posts. What do they think is important?
+    Follow their predictions on X/Twitter. How often are they right?
+
+  Examples to study:
+    Andrej Karpathy (pragmatic, code-first, teaches)
+    Yann LeCun (foundational, skeptical of hype)
+    Noam Shazeer (architectural innovations)
+    Chris Olah (interpretability, visuals)
+    Ilya Sutskever (bold bets, often right)
+    Francois Chollet (contrarian, careful)
+
+  Over time, form your OWN taste — blend of your heroes + your experience.
+```
+
+**Anti-taste examples** (also useful):
+
+```
+  Study researchers whose taste you find questionable.
+  Articulate WHY.
+
+  Common anti-patterns worth naming:
+    - "Benchmark gaming" researchers: +0.3% SOTA with 3× compute
+    - "Architecture zoo" researchers: proposes complex design with no ablation
+    - "LLM-as-magic" researchers: claims emergence without careful measurement
+    - "Trendy topic" researchers: works on whatever's hot, never deep
+    - "Pedigree" researchers: cites only senior voices, dismisses juniors
+
+  By articulating what's WRONG, you clarify what's RIGHT.
+```
+
+**Applied taste questions**:
+
+```
+  For each decision, ask:
+
+  "Is this the ONE thing that matters most?"
+     (If not, why am I doing it?)
+
+  "What's the weakest part of my plan?"
+     (Attack that first.)
+
+  "What would prove me wrong?"
+     (Design that test.)
+
+  "If I were skeptical, what would I ask?"
+     (Be your own critic.)
+
+  "Is this just hype?"
+     (Would it matter in 2 years?)
+
+  Answering these honestly — daily — is taste in action.
+```
+
+**The bitter lesson, again**:
+
+```
+  "Bitter" because of what it implies about taste:
+
+  Sutton 2019: "Methods that scale with compute win.
+                 Human-engineered shortcuts lose."
+
+  Corollary for taste:
+    Bet on methods that get better with more compute.
+    Be skeptical of clever tricks that don't scale.
+    Be humble about your clever ideas; the compute
+    may render them irrelevant.
+
+  A taste filter that compounds: "does this scale?"
+```
+
+**Taste is the thing you can't Google**:
+
+```
+  Googleable:
+    ✓ What does SwiGLU mean?
+    ✓ How to implement RMSNorm?
+    ✓ What's the Chinchilla rule?
+
+  Not Googleable:
+    ✗ Is this idea worth 3 months?
+    ✗ Will this paper hold up?
+    ✗ What should we work on next?
+    ✗ Is scale the answer or is something missing?
+
+  Your taste determines the second list.
+  Your career impact scales with it.
+```
+
 ## Exercises
 
 1. Pick a recent paper that impressed you. Write: what's the actual novel contribution? What would I do differently? What's the weakest claim?

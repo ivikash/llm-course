@@ -177,6 +177,177 @@ You ran 20 experiments. None got written up. 6 months later, you remember nothin
 
 This rhythm produces 3-5 log entries and one weekly memo. After a month: 15-20 experiments and 4 memos. After a year: 150+ experiments and 50 memos. That's a portfolio.
 
+## Visualize this
+
+**The research loop, one diagram**:
+
+```
+                 ┌─────────────────┐
+                 │  Open question   │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │   Hypothesis     │  "I bet X helps Y because Z"
+                 │   (specific,     │
+                 │   testable,      │
+                 │   falsifiable)   │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │ Experiment      │  minimum-sufficient design
+                 │ design           │  compute estimate
+                 │                  │  kill criteria
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │ Run              │  actually execute
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │ Analyze          │  what did we learn?
+                 │                  │  vs. what we expected?
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │ Write it down    │  in your research log
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │ New hypothesis   │  (or revised)
+                 └────────┬────────┘
+                          │
+                          └──── loop ─────────┐
+                                              │
+                                              ▼
+                                        (this is research)
+```
+
+**Good vs bad hypotheses**:
+
+```
+  BAD (vague, untestable):
+  - "I think attention is important."
+  - "Our model will work better."
+  - "This should improve performance."
+  - "Let me try something."
+
+  GOOD (specific, measurable, falsifiable):
+  - "Replacing LayerNorm with RMSNorm in a d12 nanoGPT reduces
+     validation BPB by ≥ 3% with no change in wall-clock time."
+  - "Setting AdamW β₂ to 0.95 instead of 0.999 reduces loss variance
+     across seeds from ±0.02 to ±0.005 on our GSM8K RL task."
+  - "Training on FineWeb-only (vs FineWeb+arXiv) costs 2% on GSM8K
+     but improves MMLU by ≥ 1 percentage point."
+
+  What makes GOOD hypotheses good:
+  - Specific model / dataset / metric
+  - Specific quantitative threshold
+  - Can be disproven by one experiment
+```
+
+**The "pre-experiment" 5-line plan**:
+
+```
+  Before every experiment, write this in your log:
+
+  ─── 2026-04-26, experiment XYZ ─────────────────────
+  Hypothesis: [one sentence, specific, testable]
+  Metric: [what will you look at?]
+  Baseline: [what are you comparing against?]
+  Budget: [compute and wall-clock estimate]
+  Kill criteria: [when do you abandon?]
+  Expected outcome: [what will the number be?]
+  ─────────────────────────────────────────────────────
+
+  Writing this catches bad experiments BEFORE launching.
+  If you can't answer all 6, don't run yet.
+```
+
+**Common experiment designs**:
+
+```
+  1. A/B comparison (most common):
+     Baseline vs your variant. Same everything else.
+     Run 3 seeds each. Report mean ± std.
+
+  2. Ablation:
+     Full method vs method-with-X-removed.
+     Reveals whether X matters.
+
+  3. Scaling study:
+     Run at sizes {small, medium, large}.
+     Does your improvement hold at all scales?
+
+  4. Hyperparameter sweep:
+     Grid or random search over a few HPs.
+     Find optimal config, report.
+
+  5. Compute-matched:
+     Fix total FLOPs. Vary other things.
+     Directly comparable.
+
+  Pick the simplest design that answers your question.
+```
+
+**Controls matter more than you think**:
+
+```
+  Bad experiment:
+    Run A: baseline, d12, 100k steps
+    Run B: my idea, d16, 150k steps
+    Run B wins!
+
+    But wait: did B win because of the idea? Or because d16 > d12?
+    Or because 150k > 100k? Can't tell. Useless result.
+
+  Good experiment:
+    Run A: baseline, d12, 100k steps, seed 42
+    Run B: baseline, d12, 100k steps, seed 43
+    Run C: baseline, d12, 100k steps, seed 44
+    Run D: my idea, d12, 100k steps, seed 42
+    Run E: my idea, d12, 100k steps, seed 43
+    Run F: my idea, d12, 100k steps, seed 44
+
+    Compare means and std devs. Now the comparison is clean.
+```
+
+**Seed variance trap**:
+
+```
+  Don't be fooled:
+
+  Run 1 of idea X:  val loss = 2.41
+  Run 1 of baseline: val loss = 2.45
+  "X wins by 0.04!" you declare.
+
+  But the std across seeds of baseline is ±0.06.
+  The "improvement" is noise.
+
+  Rule: at least 3 seeds per config for any claim.
+  Rule: if the effect size is < 2× std, it's noise.
+```
+
+**The weekly research rhythm**:
+
+```
+  Monday:     plan 3-5 experiments (5 lines each in log)
+  Tue-Thu:    run, analyze, iterate
+  Friday:     write 1-page summary of the week
+
+  Ship weekly. Ship rough. Refine over quarters.
+
+  A year = 52 weeks × 3-5 experiments = 150+ experiments.
+  A year = 52 weeks × 1 writeup = 52 memos you can read later.
+
+  That's how careers accrete.
+```
+
 ## Exercises
 
 1. Read Karpathy's LOG.md from nanochat. Pick 3 entries and note their structure.

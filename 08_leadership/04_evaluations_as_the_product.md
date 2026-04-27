@@ -133,6 +133,181 @@ If you're the leader:
 - OpenAI's [evals framework](https://github.com/openai/evals).
 - EleutherAI's lm-evaluation-harness - standard tool for public LM evals.
 
+## Visualize this
+
+**The eval-driven research loop**:
+
+```
+  Instead of:
+    1. Have an idea
+    2. Implement it
+    3. Measure something
+    4. Hope it improved
+
+  Do:
+    ┌─────────────────────────────────────────────┐
+    │ 1. Build/find eval first                    │
+    │     metric, dataset, gold answers            │
+    │                                              │
+    │ 2. Baseline current model on eval            │
+    │     get N, variance, confidence intervals    │
+    │                                              │
+    │ 3. Pick improvement idea                     │
+    │     hypothesis: "this will move the eval"    │
+    │                                              │
+    │ 4. Implement                                 │
+    │                                              │
+    │ 5. Re-run eval                               │
+    │     did it move beyond noise?                │
+    │                                              │
+    │ 6. Pass/fail decision                        │
+    └─────────────────────────────────────────────┘
+```
+
+**Eval stack tiers**:
+
+```
+   Tier 1: FAST (every PR)
+   ┌──────────────────────────────────────────┐
+   │ Small MMLU subset (100 Qs)                │ ~2 min
+   │ Sample coherence check                     │ ~1 min
+   │ Basic safety check                         │ ~1 min
+   │ Total: ~5 min per commit                   │
+   └──────────────────────────────────────────┘
+
+   Tier 2: WEEKLY (major checkpoints)
+   ┌──────────────────────────────────────────┐
+   │ Full MMLU / ARC / HumanEval / GSM8K        │ ~2 hours
+   │ CORE metric                                │ ~30 min
+   │ Domain-specific internal evals              │ varies
+   │ Red team suite                             │ ~1 hour
+   │ Total: ~3-5 hours per checkpoint             │
+   └──────────────────────────────────────────┘
+
+   Tier 3: DEEP (pre-release)
+   ┌──────────────────────────────────────────┐
+   │ Human evaluators (paid)                    │ days
+   │ Chatbot Arena-style pairwise               │ weeks
+   │ Adversarial red-teaming                    │ days
+   │ Long-horizon coherence                     │ days
+   │ Multilingual quality                       │ varies
+   │ Production traffic replay                  │ hours
+   └──────────────────────────────────────────┘
+```
+
+**The public benchmark treadmill**:
+
+```
+  Benchmark lifecycle (typical):
+
+  Year 1: Released. Top models score ~20%.
+          "Promising but hard." Useful.
+
+  Year 2-3: Models catch up. Top score ~50%.
+            "The gold standard." Very useful.
+
+  Year 4: Top score ~85%. Getting saturated.
+          Small gains no longer meaningful.
+
+  Year 5: Top score ~95%. Fully saturated.
+          Also, training data contaminated.
+          Time for new benchmark.
+
+  Examples:
+   SQUAD (QA)         2016 → 2020   saturated
+   GLUE               2018 → 2020   saturated → SuperGLUE
+   MMLU               2020 → 2024   approaching saturation
+   GSM8K              2021 → 2024   top ~95%
+   Humanity's Last    2024 → ??     current "hard" benchmark
+   Exam (HLE)
+   ARC-AGI            2019 → 2025   just solved by o3
+```
+
+**Goodhart's Law (critical for ML leaders)**:
+
+```
+  "When a measure becomes a target, it ceases to be a good measure."
+
+  Example:
+    Start: "MMLU score is a good proxy for knowledge."
+    
+    Months later: "Let's train specifically to improve MMLU."
+    
+    Eventually:
+    - Model overfits to MMLU-style questions.
+    - Training data gets contaminated with MMLU.
+    - "Good at MMLU" stops meaning "good at knowledge".
+
+  Defense:
+    - Rotate benchmarks regularly.
+    - Use internal holdout benchmarks.
+    - Check that MMLU gains correlate with downstream wins.
+```
+
+**Eval quality checklist**:
+
+```
+  For any benchmark you rely on:
+
+  ✓ Discriminative: good models score noticeably higher than bad ones
+  ✓ Stable: same model twice → similar score (test-retest reliability)
+  ✓ Correlates with real value: moving this metric moves product
+  ✓ Uncontaminated: not in training data
+  ✓ Diverse: covers many types of inputs
+  ✓ Cheap enough to run often
+  ✓ Hard to game: model can't trivially get high score via shortcuts
+
+  If a benchmark fails 3+ of these, drop it. Create better.
+```
+
+**The "eval is the product" mindset**:
+
+```
+  Common mistake:
+    Team builds model → "now let's figure out how to measure it"
+
+  Better:
+    Team defines eval → "what model would win on this eval?"
+
+  The eval determines:
+    - What the model learns
+    - What the team optimizes for
+    - What the org declares as success
+    - What leadership reports up
+
+  → The eval IS the product specification.
+  → Design it with the same care you'd design a PRD.
+```
+
+**Example: an internal eval suite**:
+
+```
+  Company: "Customer support chat assistant"
+
+  Internal eval suite (kept secret, updated quarterly):
+  ┌────────────────────────────────────────────┐
+  │ 500 real customer questions (labeled)        │
+  │ ├── 100 product pricing questions             │
+  │ ├── 100 technical troubleshooting             │
+  │ ├── 100 billing / refund / policy             │
+  │ ├── 100 general chat / small talk             │
+  │ └── 100 escalation / complex multi-turn       │
+  │                                              │
+  │ Metrics per category:                        │
+  │ - LLM-as-judge accuracy (vs gold human answer)│
+  │ - Hallucination rate (made up facts?)          │
+  │ - Policy adherence (didn't give forbidden info)│
+  │ - Escalation rate (knew when to hand off)      │
+  │                                              │
+  │ Overall score: weighted by traffic share      │
+  │                                              │
+  │ Run on every candidate model.                 │
+  │ Ship if beats current by >3% with no regressions│
+  └────────────────────────────────────────────┘
+```
+
+This eval IS the product. Building it well is the hardest and most valuable work.
+
 ## Exercises
 
 1. List the evals you (or your team) currently run. For each:

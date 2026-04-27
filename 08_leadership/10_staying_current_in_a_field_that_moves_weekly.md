@@ -182,6 +182,229 @@ Find your rhythm. Protect it.
 4. Start a personal knowledge base. Even if just one Markdown file. Add notes as you read.
 5. Pick one paper this week and deeply engage with it. Write a 1-page summary.
 
+## Visualize this
+
+**The firehose, visualized**:
+
+```
+  What's produced each week in AI:
+
+  arXiv cs.LG + cs.CL:  ~200 new papers      (can read all? no)
+  HuggingFace models:   ~500 new releases     (can look at all? no)
+  GitHub AI projects:   thousands            (definitely not)
+  Twitter/X posts:       millions             (drink from firehose = drown)
+
+  If you spent 4 hours a day on it:
+    Read 5 papers (at pass 1 each)
+    Skim 20 tweets
+    Scan 2 newsletters
+    Total: barely 1% of weekly output.
+
+  You cannot catch up. Stop trying.
+```
+
+**The filter pyramid**:
+
+```
+                      🎯
+                    Top papers
+                   (5-10/year, deep dive)
+                    ╱        ╲
+                   ╱          ╲
+                  ╱            ╲
+                 ╱              ╲
+                Monthly reads
+              (40/year, pass 2)
+               ╱                ╲
+              ╱                  ╲
+             ╱                    ╲
+            ╱                      ╲
+            Weekly headlines
+         (100/year, pass 1)
+          ╱                          ╲
+         ╱                            ╲
+        ╱                              ╲
+        Daily curator feeds
+      (~1000/year, just titles)
+       ╱                                ╲
+      ╱   (ignore the rest of the firehose)
+```
+
+Narrow as you go. Depth matters more than breadth.
+
+**Curator subscriptions that compound**:
+
+```
+  3 newsletters (weekly):
+  ─────────────────────────
+  ✓ Interconnects (Nathan Lambert) - LLM deep dives
+  ✓ Import AI (Jack Clark) - AI news with analysis
+  ✓ Latent Space - broad LLM coverage
+
+  3-5 Twitter/X follows:
+  ──────────────────────
+  ✓ @karpathy - teaching, practical
+  ✓ @jxmnop - careful observations
+  ✓ @_jasonwei - emergent capabilities
+  ✓ @srush_nlp - NLP insights
+  ✓ @tri_dao - efficiency
+
+  2 aggregators:
+  ──────────────
+  ✓ Hugging Face Daily Papers (community-voted)
+  ✓ Papers With Code (with implementations)
+
+  1 deep-dive source per month:
+  ──────────────────────────────
+  ✓ lifearchitect.ai/papers (curated big-picture)
+  ✓ latent.space yearly papers list
+
+  Total: ~1 hour per week.
+  Gets you 90% of what matters with 1% of the firehose.
+```
+
+**Your personal knowledge base structure**:
+
+```
+  ~/notes/
+  ├── papers/
+  │   ├── 2017-attention.md        (Vaswani)
+  │   ├── 2020-gpt3.md              (Brown)
+  │   ├── 2022-chinchilla.md        (Hoffmann)
+  │   └── 2024-deepseek-r1.md       (DeepSeek)
+  │
+  ├── concepts/
+  │   ├── attention-and-moe.md
+  │   ├── scaling-laws.md
+  │   ├── rlhf-variants.md
+  │   └── infrastructure-tricks.md
+  │
+  ├── experiments/
+  │   ├── 2026-02-muon-vs-adamw.md
+  │   ├── 2026-03-rms-vs-layer.md
+  │   └── 2026-04-fp8-ablation.md
+  │
+  ├── people/
+  │   ├── karpathy-papers.md
+  │   ├── ilya-sutskever-talks.md
+  │   └── ...
+  │
+  └── questions/
+      ├── open-2026.md        (things I don't understand)
+      └── answered/           (things I used to not understand)
+
+  Use Obsidian, Notion, or plain Markdown.
+  Searchable. Linkable. Grows over years.
+```
+
+**The "one deep dive per quarter" habit**:
+
+```
+  Every 3 months, pick ONE thing:
+    - One paper to really master
+    - One technique to reimplement
+    - One area you know least about
+
+  Examples:
+    Q1: Master FlashAttention (read paper + implement + benchmark)
+    Q2: Master Mamba (read + train a Mamba on nanoGPT's Shakespeare)
+    Q3: Master GRPO (read R1 + implement + run on GSM8K)
+    Q4: Master multimodal VLMs (read LLaVA + train small VLM)
+
+  In a year: 4 deep masteries.
+  In 5 years: 20 deep masteries.
+  You're a senior researcher.
+```
+
+**Your yearly research rhythm**:
+
+```
+                       Jan
+                        ●
+          ◔         ╱         ╲          ◔
+           ●       ╱           ╲        ●
+       plan year  ●             ● ICLR approaches
+                  │             │
+          Q1      │             │        Q4
+                  │             │
+          read    │             │     reflect
+          rapidly │             │
+          ●       ●             ●       ●
+          NeurIPS      ICML    ●
+          submissions            summer   year-end
+                                conferences review
+
+  Yearly cadence aligns with major conferences.
+  Big papers drop at predictable times.
+  Align your reading intensity accordingly.
+```
+
+**Signal-filtering tests**:
+
+```
+  When considering whether to read something deeper:
+
+  1. Author track record:
+     Have their past works held up? (check citations + reproduction status)
+
+  2. Release transparency:
+     Did they release code? Weights? Data?
+
+  3. Claim size:
+     Small, specific claim OR grand statement?
+     Small = more likely to be honest. Grand = often overclaims.
+
+  4. Peer reaction:
+     What do 3-5 people-you-trust think?
+     Not hype from randos; trusted curators.
+
+  5. Independent reproductions:
+     Has someone else validated it? If yes: much stronger signal.
+
+  If 4/5 pass, upgrade to pass 2 reading.
+```
+
+**Depth vs breadth, personally**:
+
+```
+  You can't be excellent at everything. Pick your focus.
+
+  Specialist (recommended):
+    Deep in ONE area (e.g. efficient attention, RL for LLMs, evals).
+    Broad awareness of adjacent areas.
+    Become the person others ask about your area.
+
+  Generalist:
+    Broad but shallow across many areas.
+    Useful as a lead, less useful as an IC.
+    Rare to reach excellence without depth in something.
+
+  Most career-impactful path:
+    Pick ONE specialty. Go deep enough to be SOTA in it.
+    Read broadly enough to not miss tectonic shifts.
+    Ratio: 70% depth, 30% breadth.
+```
+
+**Habits to cultivate (and what to avoid)**:
+
+```
+  Cultivate:
+  ─────────
+  ✓ 30 min / day of paper reading
+  ✓ 30 min / week of deep dive
+  ✓ One reproduction / quarter
+  ✓ One shared learning / month (blog, tweet thread)
+  ✓ One chat with someone ahead of you / month
+
+  Avoid:
+  ──────
+  ✗ Anxious doom-scrolling social media
+  ✗ Bookmarking papers you'll "read later" (never do)
+  ✗ Believing the hype cycle
+  ✗ Consuming without producing
+  ✗ Comparing your progress to Karpathy's
+```
+
 ## Conclusion of Module 8
 
 You've reached the end of the course.

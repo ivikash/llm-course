@@ -187,6 +187,224 @@ Most junior researchers write up at the end. They've already moved on in their h
 
 Senior researchers write as they think. The memo evolves with their understanding. When they're done, the memo is excellent because the thinking was structured.
 
+## Visualize this
+
+**The audience pyramid**:
+
+```
+                        ┌───┐
+                        │CEO│ 1-slide summary, weekly
+                        └─┬─┘
+                      ┌───┴───┐
+                      │ VP    │ 1-page memo, bi-weekly
+                      └───┬───┘
+                    ┌─────┴─────┐
+                    │ Director  │ 3-page update, weekly
+                    └─────┬─────┘
+                  ┌───────┴───────┐
+                  │ Your manager  │ Full technical detail, weekly
+                  └───────┬───────┘
+              ┌───────────┴───────────┐
+              │    Your team          │  Slack, PRs, real-time
+              └───────────────────────┘
+
+  Same findings. Four different communications. Same quarter.
+  Rewriting is not redundant; it's work.
+```
+
+**The one-page memo template**:
+
+```
+  ┌────────────────────────────────────────────────────┐
+  │ Title: "d24 undertrained: ~2% bpb hit for 60% speedup"  │
+  │                                                    │
+  │ Date: 2026-04-26                                   │
+  │ Author: You                                        │
+  │                                                    │
+  │ Context (2 sentences):                             │
+  │ We target GPT-2 capability in minimum wall-clock.  │
+  │ Chinchilla-optimal is 20 tokens/param.             │
+  │                                                    │
+  │ Finding (3 sentences):                             │
+  │ Training d24 at 8 tokens/param (undertrained by     │
+  │ Chinchilla standard) achieves val_bpb 0.748 in      │
+  │ 2.3 hours vs 0.741 in 5.8 hours (Chinchilla).       │
+  │ For our speedrun goal, the 1% quality loss is worth  │
+  │ the 60% time savings. CORE: 0.258 (above target 0.2565).│
+  │                                                    │
+  │ [ONE plot: bpb vs time for both runs]              │
+  │                                                    │
+  │ Implications (bullets):                            │
+  │ • Ship this for the speedrun leaderboard.           │
+  │ • For quality-first goals, keep Chinchilla-optimal.  │
+  │ • Open question: does this generalize to d40+?       │
+  │                                                    │
+  │ Next: run d26 variant to de-risk larger sizes.     │
+  │ Owner: You. Deadline: 2026-05-03.                   │
+  └────────────────────────────────────────────────────┘
+
+  Total: 1 page. 1 plot. Read in 90 seconds.
+```
+
+**The three-number executive summary**:
+
+```
+  For leadership:
+
+  "Our new model is ready for production.
+
+     Capability:  31% on GSM8K (was 20%)        ← user-visible
+     Cost:        $0.08 per 1K tokens (was $0.15) ← financial
+     Risk:        2.5% regression rate in A/B   ← what can go wrong
+
+   Recommendation: ship in 2 weeks after final safety review."
+
+  30 seconds to read. Answers "should we do this?"
+```
+
+**A good headline graph** (before + after):
+
+```
+  WEAK graph:
+    Title: "Results"
+    10 colored lines
+    No labels
+    No legend
+    No error bars
+    Axes unlabeled
+
+  STRONG graph:
+    Title: "d24 with fp8 achieves 25% speedup with 0.3% bpb cost"
+                            vs bf16 baseline
+
+    bpb
+     │
+     │ ──── d24 bf16 (solid)
+     │ ──── d24 fp8  (dashed)
+     │ shaded region: ±std over 3 seeds
+     │
+     │●●●●●●●●●●●●●●●●●●●●●●●●●●●●●
+     │●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●● ← nearly overlapping
+     │
+     └────────────────────────────── wall-clock time (hours)
+
+    Legible axes, labels, legend, error bands.
+    ONE message: speedup at near-equal quality.
+```
+
+**Common executive questions (and good answers)**:
+
+```
+  Q: "Why aren't we better than OpenAI?"
+  Bad: "It's complicated, our approach is different..."
+  Good: "We're not trying to be, for this product.
+        For our target (customer support), we match
+        GPT-4 on the 5 metrics that matter to our users
+        at 1/30th the cost."
+
+  Q: "Can we ship by Q3?"
+  Bad: "We'll try!"
+  Good: "Current trajectory: 70% probability of Q3 ship.
+        To push to 90%, we'd need 2 more engineers OR
+        cutting scope by X. Which trade-off do you want?"
+
+  Q: "Is this safe?"
+  Bad: "We haven't had incidents so far."
+  Good: "We ran 500 red-team prompts; 2% triggered unwanted
+        behavior. We've patched those. Current estimate:
+        ~0.3% post-fix. Industry baselines for similar
+        products are 0.5-1%. Recommendation: ship with
+        active monitoring."
+```
+
+**Writing for different audiences**:
+
+```
+  For engineer (same team):
+  ─────────────────────────
+  "We switched LayerNorm → RMSNorm. bpb same, 8% faster.
+  Ran 3 seeds, variance 0.002. Merged in PR #417."
+
+  For manager:
+  ────────────
+  "RMSNorm replaces LayerNorm with no quality regression
+  and 8% training speedup. Worth adopting across all our
+  models. Net effect on our speedrun: 10 min faster,
+  saving ~$1000 per run."
+
+  For VP:
+  ───────
+  "Infrastructure optimization gives us 8% faster training
+  at no quality cost. Over 2026 plan, this saves $50K in
+  compute, or equivalently enables 8% more experiments."
+
+  For public blog:
+  ────────────────
+  "We investigated RMSNorm as a drop-in replacement for
+  LayerNorm. Results: 8% speedup on our training runs with
+  no measurable quality difference. Here's what we learned
+  and how you can apply it: ..."
+
+  Same finding. Four different writeups. Each takes different time.
+```
+
+**The "so what?" test**:
+
+```
+  For every sentence in your memo, ask: "So what?"
+
+  Bad:  "We trained for 100,000 steps."
+        So what?
+
+  Better: "We trained for 100,000 steps, achieving val bpb of 0.748."
+          So what?
+
+  Good: "We trained for 100,000 steps, achieving val bpb of 0.748,
+         below the 0.75 speedrun target. We can ship."
+         ← clear so-what answered in the sentence.
+
+  Apply to every bullet. Cut anything that fails.
+```
+
+**Meeting hygiene for technical updates**:
+
+```
+  Bad meeting:
+    "Let me walk you through 30 slides of results..."
+    [20 minutes later, nobody knows what matters]
+
+  Good meeting:
+    Slide 1: "Three numbers. 31% GSM8K (was 20%).
+              $0.08 per 1K tokens. 2.5% regression.
+              Ask: ship by May 15."
+    Slide 2: supporting chart 1
+    Slide 3: supporting chart 2
+    Questions?
+
+  Start with the conclusion. Lead with the ask.
+  Support with detail ONLY when needed.
+```
+
+**Handling when things go wrong (crisis communication)**:
+
+```
+  When something breaks in production:
+
+  Bad:
+  Stay quiet. Hope nobody notices. Blame someone.
+
+  Good:
+  1. Acknowledge within 30 minutes.
+     "We observed X starting at time Y. Investigating."
+  2. Update every hour until resolved.
+  3. Post-incident: honest postmortem.
+     What happened, why, what we'll do.
+  4. No scapegoating. Blame systems, not people.
+
+  Trust is built by handling bad news well.
+  Everyone makes mistakes. How you respond defines you.
+```
+
 ## Exercises
 
 1. Take the most recent experiment or project you ran. Write it up in the one-page memo format.

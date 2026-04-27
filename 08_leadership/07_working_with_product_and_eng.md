@@ -159,6 +159,195 @@ A checklist:
 
 Missing any? Shipping is a risk.
 
+## Visualize this
+
+**Research vs product time horizons**:
+
+```
+  Research team:                 Product team:
+  ───────────────                ───────────────
+
+    Year      ───────────         Quarter   ──────────
+                                  Month     ──────
+    Quarter   ──────              Sprint    ──
+    Month     ───
+                                  "Ship weekly"
+    "Publish in 6 months"
+
+  Different clocks. Both right. Both valid.
+  Friction happens at the interface.
+```
+
+**The research-to-product pipeline**:
+
+```
+  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+  │Research  │ → │Prototype │ → │Pilot      │ → │Production │
+  │ (ideas)  │   │ (demo)    │   │ (small-   │   │ (scaled)  │
+  │          │   │           │   │ scale)    │   │           │
+  └──────────┘   └──────────┘   └──────────┘   └──────────┘
+
+  Timeline: months  → weeks      → weeks     → sustained
+
+  Stage      Focus                       Typical owner
+  ─────      ─────                       ─────────────
+  Research   Does the idea work?          Research team
+  Prototype  Can we build it?             Research + eng
+  Pilot      Is it useful in limited use?  Eng + product + small user group
+  Production Does it scale reliably?       Eng (research handed off)
+
+  Common failure:
+    Research team ships a "demo" and leaves.
+    Product team can't reproduce / maintain.
+    Everyone blames everyone.
+  Solution:
+    Agreed handoff criteria (eval suite passing, runbooks written, etc.)
+```
+
+**What each side gets wrong**:
+
+```
+  Research forgets:
+    - Latency matters more than 1% accuracy gains
+    - Cost per query adds up fast
+    - Edge cases will dominate user complaints
+    - Reliability requires engineering discipline
+    - Users aren't researchers; they want things to just work
+
+  Product forgets:
+    - Insights take time (not "next sprint")
+    - Research is probabilistic (might fail)
+    - Negative results are valuable
+    - Model changes aren't feature flags
+    - Reproducibility is hard
+```
+
+**Translation conventions (cross-functional glossary)**:
+
+```
+  Research side says:          Product side hears:
+  ────────────────────         ───────────────────
+  "it works in my eval"         "it'll work in prod"     (wrong!)
+  "we improved MMLU 5%"         "users will notice"      (not necessarily)
+  "interesting finding"         "ship it tomorrow"       (premature!)
+
+  Product side says:          Research side hears:
+  ────────────────────        ───────────────────
+  "why so slow?"                "stop doing research"    (too harsh)
+  "we need X feature"           "drop everything"        (dismissive)
+  "doesn't scale"               "your work is bad"       (defensive)
+
+  Mutual patience and translation prevents these.
+```
+
+**Shared artifacts that bridge the gap**:
+
+```
+  ┌──────────────────────────────────────────────┐
+  │ SHARED EVAL SUITE                             │
+  │  - Both teams look at same numbers           │
+  │  - Product adds "user-sentiment" metrics      │
+  │  - Research adds "capability" metrics         │
+  └──────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────┐
+  │ SHARED DASHBOARD                               │
+  │  - Live production metrics                      │
+  │  - Latest model candidate metrics               │
+  │  - Gap between them                             │
+  └──────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────┐
+  │ SHARED DEMO CADENCE                            │
+  │  - Research demos new prototype every 2 weeks  │
+  │  - Product demos what users did with prev model │
+  └──────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────┐
+  │ MODEL CARD (per release)                       │
+  │  - Capabilities (research side)                 │
+  │  - Known limitations                            │
+  │  - Eval scores                                  │
+  │  - Recommended use / misuse                      │
+  └──────────────────────────────────────────────┘
+```
+
+**The demo trap**:
+
+```
+  Common failure:
+    Researcher: "Here's our cool demo! It solves X!"
+    Executive: "Let's ship it!"
+    Product: "Okay we'll launch in 2 weeks."
+    (2 weeks later)
+    Users: "It fails on my inputs. Refund."
+
+  What happened:
+    Demo was 5 cherry-picked examples.
+    Real-world input distribution is different.
+    Edge cases weren't tested.
+
+  Rule: NO demo commits to a ship date.
+  Before shipping, run the demo on 100 random real examples.
+  Ship only if success rate > threshold.
+```
+
+**The "ML PM" relationship**:
+
+```
+  A great ML PM does:
+    ✓ Translates business needs to evals
+    ✓ Shields research from constant firefighting
+    ✓ Pushes back on unrealistic timelines
+    ✓ Evangelizes ML limits to stakeholders
+
+  A bad ML PM does:
+    ✗ Demands "ChatGPT-level quality" as a quarterly goal
+    ✗ Over-promises to users / executives
+    ✗ Confuses AUC with product metric
+
+  Invest heavily in this relationship.
+  A great ML PM doubles your research productivity.
+```
+
+**Shipping checklist for a new model**:
+
+```
+  Before any new model goes to production:
+
+  Quality:
+    [ ] Eval suite passes (regression vs baseline)
+    [ ] Red team suite passes
+    [ ] User-facing metric (A/B test) favorable
+  
+  Reliability:
+    [ ] Latency p95 < SLO
+    [ ] Error rate < 0.1%
+    [ ] Handles rate limits / quotas
+  
+  Cost:
+    [ ] Cost per request within budget
+    [ ] Scaling plan for growth
+  
+  Safety:
+    [ ] Safety team sign-off
+    [ ] Content filtering in place
+    [ ] Refusal patterns tested
+  
+  Operations:
+    [ ] Rollback plan documented
+    [ ] Canary deployment ready
+    [ ] Monitoring dashboards updated
+    [ ] On-call runbook written
+  
+  Communication:
+    [ ] Model card published
+    [ ] Release notes drafted
+    [ ] Customer-facing docs updated
+```
+
+If any unchecked → shipping is a risk.
+
 ## Exercises
 
 1. For your current or last project: identify the biggest research-product communication failure. What caused it?
