@@ -30,6 +30,15 @@ GPT-3 (2020) followed this: 175B params, 300B tokens (ratio ~1.7:1 of tokens per
 
 ## Chinchilla's correction (2022)
 
+**Explore the compute-optimal model size:**
+
+```viz
+{"viz": "chinchilla"}
+```
+
+Pick a compute budget. The curve shows loss vs. model size (holding compute fixed). The red dot is the Chinchilla-optimal point. Below it you're wasting data; above, you're wasting params. Pre-Chinchilla (GPT-3 era) models sat well to the right.
+
+
 DeepMind trained many models, carefully. Found: Kaplan was wrong. The loss-optimal allocation is **roughly equal**: scale N and D together.
 
 Rule of thumb: **~20 tokens per parameter** for compute-optimal training.

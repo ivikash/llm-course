@@ -4,6 +4,15 @@ An LLM has no memory. Each API call starts fresh. If your agent is going to act 
 
 ## The memory levels
 
+**Interactive agent memory:**
+
+```viz
+{"viz": "agent_memory"}
+```
+
+Click **Seed** to add messages. Watch context fill up; once past its size limit, older messages move to long-term (right). Click **Send "What's my favorite color?"** — the retrieval step brings back the relevant long-term message. This is the core dance of every memory-augmented agent.
+
+
 ### Level 1: In-context (short-term)
 
 The conversation history in the current request. Trivial.

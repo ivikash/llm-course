@@ -11,6 +11,15 @@ This lesson: how it works, how to use it, what's evolved since.
 
 ## Architecture: a transformer encoder-decoder
 
+**Watch Whisper stream a transcription:**
+
+```viz
+{"viz": "whisper_streaming"}
+```
+
+Press **▶**. Audio waveform fills in; every 8 words, a new 30-second chunk triggers a fresh mel spectrogram (left); decoder tokens stream out on the right. This is how ChatGPT's voice mode, Apple Transcription, and every modern STT pipeline work.
+
+
 Whisper is basically a **seq2seq transformer** - similar in structure to the original "Attention Is All You Need" paper.
 
 **Input**: 30 seconds of audio, converted to a mel-spectrogram.
