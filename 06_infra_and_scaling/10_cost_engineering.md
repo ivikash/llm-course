@@ -124,6 +124,17 @@ Training is expensive in wall time, money, and opportunity. Often the right move
 
 **Cost breakdown of training runs**:
 
+```viz
+{"viz": "cost_calculator"}
+```
+
+Slide model size and training tokens. Table shows real 2026 prices across hardware generations. Try:
+- 7B model, 140B tokens → ~$2-5k on H100 8-GPU
+- 70B model, 1.4T tokens (Chinchilla-optimal) → ~$500k
+- GPT-3 scale (175B, 300B tokens) → ~$2-4M
+
+The gap between V100 era and H100 era is enormous — same model, ~5× cheaper in 2026.
+
 ```
   nanochat speedrun (d24, 3.5h on 8xH100):
   ┌────────────────────────────────────┐

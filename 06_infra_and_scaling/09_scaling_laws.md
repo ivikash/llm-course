@@ -124,6 +124,15 @@ You can fit a scaling law to your own small runs and extrapolate to bigger. Very
 
 **Chinchilla's isoFLOP curves (the famous figure)**:
 
+```viz
+{"viz": "scaling_laws"}
+```
+
+Slide compute from 10¹⁹ (tiny) to 10²⁵ (GPT-4 territory). The blue curve is loss as a function of model size (holding compute fixed). The green dot is Chinchilla-optimal (minimum of the curve). The red dot shows where your chosen training mode lands:
+- Chinchilla (20 tokens/param) ≈ minimum
+- Llama-3 (1000 tokens/param) = overtrained; slight loss hit for cheaper inference
+- GPT-3 (1.7 tokens/param) = undertrained; wastes model capacity
+
 ```
   loss
    │

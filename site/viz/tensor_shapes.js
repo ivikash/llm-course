@@ -21,7 +21,10 @@ registerViz('tensor_shapes', async function (container) {
   const canvas = container.querySelector('#ts-canvas');
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
-  const w = canvas.clientWidth, h = canvas.clientHeight;
+  // Wait one frame so the canvas has real layout width (it's inserted into
+  // a flex scroll container; clientWidth can be 0 on the synchronous path).
+  await new Promise(r => requestAnimationFrame(r));
+  const w = Math.max(canvas.clientWidth, 1), h = Math.max(canvas.clientHeight, 1);
   renderer.setSize(w, h);
   canvas.appendChild(renderer.domElement);
 

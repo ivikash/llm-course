@@ -194,6 +194,12 @@ nvitop
 
 **OOM debugging flowchart**:
 
+```viz
+{"viz": "memory_calculator"}
+```
+
+Slide model size, GPU, precision. See where memory goes (model weights + gradients + AdamW state + activations) and whether it fits. Try: 7B model on A100-40GB with fp32+AdamW → OOM. Switch to bf16+8-bit-adam → fits.
+
 ```
   "torch.cuda.OutOfMemoryError"
            │
