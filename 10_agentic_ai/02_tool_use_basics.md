@@ -4,6 +4,15 @@ Tools are the agent's hands. This lesson covers the mechanics: how to define too
 
 ## The function-calling interface
 
+**Inspect a real tool-call JSON live:**
+
+```viz
+{"viz": "tool_call_inspector"}
+```
+
+Switch between examples (weather, search, SQL, parallel-calls). Hover any yellow-highlighted piece for what it means. This is exactly what the OpenAI API returns when the LLM decides to invoke a tool.
+
+
 Modern LLM APIs (OpenAI, Anthropic, Google, Mistral) support native tool calling. You pass tool definitions alongside the prompt. The model returns either text or a structured tool call.
 
 ### OpenAI format (de facto standard)

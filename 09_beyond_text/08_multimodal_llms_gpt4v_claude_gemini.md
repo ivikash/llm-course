@@ -171,6 +171,16 @@ Models: Video-LLaVA, LLaVA-NeXT-Video, Gemini 1.5 (1M token context = ~1 hour vi
 
 ## Visualize this
 
+## Visualize this
+
+**Inspect how a VLM composes image + text tokens:**
+
+```viz
+{"viz": "vlm_tokens"}
+```
+
+Pick an image and a question. The sequence below shows the actual input the LLM sees: `<|image_start|>` marker + 576 visual tokens (one per CLIP patch) + `<|image_end|>` + text tokens. Same transformer attends across all of them.
+
 **VLM architecture at a glance**:
 
 ```

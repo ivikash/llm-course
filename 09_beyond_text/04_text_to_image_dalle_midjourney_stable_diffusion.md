@@ -98,6 +98,15 @@ Works in SD / SDXL; Flux uses different mechanism.
 
 ## Guidance scale
 
+**CFG scale, live:**
+
+```viz
+{"viz": "guidance_scale"}
+```
+
+Three same-prompt samples: scale 1 (loose), your chosen scale (middle), scale 15 (strict). Slide the middle to see the spectrum from "interpretive blob" to "saturated polished image". Above 14 → "fried" artifacts.
+
+
 `guidance_scale=7.5` is default for SD. Effect:
 - **3**: loose, interpretive, sometimes weird.
 - **7**: balanced.
