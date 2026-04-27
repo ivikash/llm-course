@@ -109,6 +109,14 @@ They match. You just did backprop. Now never do it again.
 
 ## Visualize this
 
+**Watch backprop in a 2-layer MLP:**
+
+```viz
+{"viz": "backprop_graph"}
+```
+
+Set x and target. Press **▶ Forward** — blue values fill in left-to-right. Press **◀ Backward** — red gradients fill in right-to-left (chain rule in action). Every weight now has ∂L/∂w and the optimizer can update it.
+
 **Forward vs backward pass**:
 
 ```

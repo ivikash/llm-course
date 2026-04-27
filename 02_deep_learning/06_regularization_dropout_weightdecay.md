@@ -4,7 +4,17 @@ Neural networks can memorize training data instead of learning generalizable pat
 
 For transformers at scale, overfitting is *less* of a problem (you have so much data, one epoch is as much as you can afford). But regularization still helps, and the techniques apply everywhere.
 
-## Dropout
+## Visualize this
+
+**Watch dropout in action:**
+
+```viz
+{"viz": "dropout_viz"}
+```
+
+Press **New forward pass** repeatedly. Each pass, a random subset of neurons is zeroed (shown as red X). Switch to Eval mode — all neurons stay active. This is what nn.Dropout does behind the scenes.
+
+**Dropout**:
 
 During training, randomly set a fraction of activations to 0. Forces the model to be robust - it can't rely on any single neuron. At inference time, dropout is turned off.
 
