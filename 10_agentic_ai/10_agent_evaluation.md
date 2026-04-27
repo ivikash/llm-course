@@ -73,6 +73,15 @@ Red-team with adversarial prompts.
 
 ## Benchmarks
 
+**Interactive benchmark scorecard — explore 8 benchmarks × 8 models:**
+
+```viz
+{"viz": "agent_eval_scorecard"}
+```
+
+Hover a row for the benchmark description. Click a model column to highlight. Slide the year slider to see capability evolution. Note how ARC-AGI stayed near zero until o3 cracked it.
+
+
 ### General
 
 **GAIA** (Mialon 2023): 466 complex real-world questions requiring tool use, reasoning, multi-modal. Gold standard for general assistants.

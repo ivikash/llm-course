@@ -103,6 +103,14 @@ nanoGPT doesn't use this; nanochat also doesn't (they tune other knobs). Standar
 
 ## Visualize this
 
+**Gradient accumulation animated:**
+
+```viz
+{"viz": "grad_accumulation"}
+```
+
+Press **▶ Play**. Four micro-batches run in sequence. The accumulated-gradient bar fills. After all K micro-batches: one optimizer step + zero_grad. Effective batch = K × M, but peak memory stays at M.
+
 **Gradient accumulation, pictorially**:
 
 ```
