@@ -136,6 +136,14 @@ For very long contexts (100K+), **Paged KV cache** + Flash Decoding become neces
 
 **KV cache: why generation is O(T) per token, not O(T²)**:
 
+```viz
+{"viz": "kv_cache"}
+```
+
+Press **Generate**. Watch tokens appear one per step. Left panel: without KV cache — each step recomputes K/V for all past positions (blue cells = work done). Right panel: with KV cache — only the NEW position is computed (green = cached, blue = current). After generation, the ratio readout shows how much work you saved.
+
+Without cache, generating 100 tokens = 5,050 position-computations. With cache = 100. **50× speedup.** This is why modern LLMs can stream replies.
+
 ```
   Without KV cache (naive generation):
   Step 1: input = 1 token, model processes 1 position. Compute: 1 unit.

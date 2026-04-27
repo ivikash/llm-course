@@ -44,6 +44,14 @@ nanochat doesn't cleanly separate these - `chat_sft.py` does both in one stage, 
 
 ## Loss masking: the key technique
 
+**See it live first**:
+
+```viz
+{"viz": "sft_loss_mask"}
+```
+
+Switch between scenarios. Green tokens (assistant) contribute to the loss; red tokens (user) don't. Each token carries its mask bit (1 or 0). Notice: even in tool-use scenarios, tool *outputs* have mask=0 — model reads them but doesn't try to generate them.
+
 During SFT, the training data is (user_message, assistant_response) pairs. We compute loss **only** on the assistant's tokens, not the user's.
 
 Why? Because:

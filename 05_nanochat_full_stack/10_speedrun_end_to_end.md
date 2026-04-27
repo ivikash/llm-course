@@ -183,6 +183,14 @@ This is a research methodology worth adopting for your own work: find a fixed be
 
 ## Visualize this
 
+**The full speedrun, clickable:**
+
+```viz
+{"viz": "speedrun_timeline"}
+```
+
+Click any stage to see what it does. Note: downloading data (blue) runs in parallel with tokenizer training (green). Pretraining (orange) dominates at 2+ hours. Everything else is 5-30 min each.
+
 **The speedrun timeline on 8xH100**:
 
 ```

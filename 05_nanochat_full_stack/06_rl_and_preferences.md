@@ -203,6 +203,14 @@ PPO needs a reward model. DPO needs preferences. GRPO just needs verifiable corr
 
 **What GRPO does per step**:
 
+```viz
+{"viz": "grpo_rollouts"}
+```
+
+Simulate a GRPO step on a math problem. Slide K (rollouts) and the model's current skill. Each card = one sampled response. Green border = correct (advantage +), red border = wrong (advantage −). The policy gradient pushes the model to make green answers MORE likely, red answers LESS likely.
+
+Try skill=40% → lots of wrong rollouts; training signal is strong. Try skill=95% → rare wrong ones get big negative advantage; model still learns which paths to avoid.
+
 ```
   Step N:
     1. Sample batch of prompts from GSM8K:
