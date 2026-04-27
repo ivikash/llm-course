@@ -169,6 +169,173 @@ Radford et al. 2021: ["Learning Transferable Visual Models From Natural Language
 
 Figure 1 is beautiful: shows the contrastive training setup on the left and zero-shot classification on the right, same architecture.
 
+## Visualize this
+
+**CLIP training: aligning image and text embeddings**:
+
+```
+  Training batch: 256 (image, caption) pairs
+
+  Image encoder (ViT):         Text encoder (Transformer):
+  ┌──────────────┐              ┌──────────────┐
+  │ image 1      │              │ "a cat on     │
+  │              │              │  the couch"   │
+  └──────┬───────┘              └──────┬───────┘
+         │                                │
+         ▼                                ▼
+     vector v₁                        vector t₁
+      (512-d)                         (512-d)
+
+  Similarity matrix (256 × 256):
+
+           text 1  text 2  text 3  ... text N
+  image 1  [HIGH]   low     low         low
+  image 2  low      HIGH    low         low
+  image 3  low      low     HIGH        low    ← diagonal should be high
+    ...
+  image N  low      low     low         HIGH
+
+  Loss (InfoNCE):
+    for each row: softmax, make diagonal class-1 the target
+    for each col: same (symmetric)
+    sum both losses
+
+  After training: matched pairs have similar embeddings,
+  mismatched pairs have dissimilar ones.
+  → "shared meaning space" for images and text.
+```
+
+**Zero-shot classification (the killer demo)**:
+
+```
+  Goal: classify an image without training a classifier.
+
+  Image: [photo of a dog]
+              │
+              ▼
+   image encoder (ViT)
+              │
+              ▼
+     vector v  (512-d)
+
+  Candidate texts: "a photo of a cat", "a photo of a dog", "a photo of a car"
+              │
+              ▼
+       text encoder
+              │
+              ▼
+   vectors t_cat, t_dog, t_car  (each 512-d)
+
+  Compute cosine similarities:
+     v · t_cat = 0.21
+     v · t_dog = 0.67   ←── winner
+     v · t_car = 0.15
+
+  Predict: "a photo of a dog".
+
+  No training. No labels. Just CLIP + a list of candidate strings.
+  This is magic.
+```
+
+**CLIP's role across modern AI**:
+
+```
+  ┌──────────────────────────────────────────────┐
+  │        CLIP (2021)                             │
+  │   ┌─────────────┐  ┌─────────────┐             │
+  │   │ Image       │  │ Text         │             │
+  │   │ Encoder     │  │ Encoder      │             │
+  │   │ (ViT)       │  │ (Transformer)│             │
+  │   └──────┬──────┘  └──────┬──────┘             │
+  │           │                 │                     │
+  │           └─── shared ─────┘                    │
+  │                embed space                      │
+  └────────────┬───────────────┬──────────────────┘
+                │                │
+                ▼                ▼
+      ┌────────────────┐   ┌──────────────────┐
+      │Stable Diffusion │  │ LLaVA             │
+      │  text → image   │  │ image → text      │
+      │                 │  │                   │
+      │ (uses CLIP text │  │ (uses CLIP image  │
+      │  embeds to guide│  │  encoder to feed  │
+      │  image gen)     │  │  into an LLM)      │
+      └────────────────┘   └──────────────────┘
+                │                │
+                ▼                ▼
+      ┌────────────────┐   ┌──────────────────┐
+      │ DALL-E 2        │  │ GPT-4V            │
+      │ Midjourney       │  │ Claude with vision│
+      │ Imagen            │  │ Gemini            │
+      └────────────────┘   └──────────────────┘
+
+  CLIP is the backbone of the multimodal era.
+```
+
+**Image-text similarity in embedding space (2D PCA projection)**:
+
+```
+         │ "sunny day"
+         │              "happy cat"
+         │     ●               ●
+         │      ●        ●
+         │       ● cat photo
+         │      ●
+   dim 2 │
+         │                         "robot"
+         │   ●                             ●  ● robot photo
+         │   ● dog photo                   ●
+         │ ●          "play ball"
+         │  ● dog       ●●
+         │
+         └───────────────────────────────── dim 1
+
+  Images and text co-inhabit the space.
+  Semantic similarity = spatial proximity.
+  "cat" text embedding lies near cat images.
+  "robot" text near robot images.
+```
+
+**Limits of CLIP (real but important)**:
+
+```
+  ✗ Spatial: "cat on top of dog" vs "dog on top of cat" → same embedding
+  ✗ Counting: "3 apples" vs "5 apples" → can't distinguish reliably
+  ✗ Relations: struggles with precise attribute binding
+  ✗ Negations: "an image without a cat" → treats as "an image with a cat"
+  ✗ Fine-grained: "golden retriever" vs "labrador" → confuses
+  ✗ Text in images: sees text but often misreads
+
+  These are known limitations.
+  Researchers are working on fixes (SigLIP, EVA-CLIP, etc.).
+```
+
+**Running zero-shot classification** (actually worth trying):
+
+```python
+import clip, torch
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+image = preprocess(Image.open("cat.jpg")).unsqueeze(0).to(device)
+labels = ["a photo of a cat", "a photo of a dog", "a photo of a rabbit"]
+text = clip.tokenize(labels).to(device)
+
+with torch.no_grad():
+    img_feat = model.encode_image(image)
+    txt_feat = model.encode_text(text)
+    img_feat /= img_feat.norm(dim=-1, keepdim=True)
+    txt_feat /= txt_feat.norm(dim=-1, keepdim=True)
+    similarity = (100.0 * img_feat @ txt_feat.T).softmax(dim=-1)
+
+for label, prob in zip(labels, similarity[0]):
+    print(f"{label}: {prob:.2%}")
+```
+
+Run this on any of your photos. Instant image classifier with ZERO training.
+
 ## Exercises
 
 1. Run the zero-shot classification snippet on 5 photos from your phone. Try "a photo of a [X]" for various X. Which ones work, which fail?

@@ -96,6 +96,151 @@ Current state (2024-26):
 
 CNN architectures are still widely deployed but research has shifted to transformers.
 
+## Visualize this
+
+**An image as patches, pictorially**:
+
+```
+  Original image (224 × 224 pixels, RGB):
+  ┌────────────────────────────────────────┐
+  │  ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲ ╱╲  │  224 px tall
+  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+  │ ... your cat photo ...                  │
+  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+  └────────────────────────────────────────┘
+         ↓  cut into 16×16 patches  ↓
+  ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐
+  │P0│P1│P2│P3│P4│P5│P6│P7│P8│P9│10│11│12│13│
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+  │14│15│16│17│18│19│20│21│22│23│24│25│26│27│
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+  │28│29│30│31│32│33│34│35│36│37│38│39│40│41│
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+  ...
+  └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘
+   14 columns × 14 rows = 196 patches
+
+   each patch: 16 × 16 × 3 (RGB) = 768 numbers
+   flatten → a vector of 768 numbers
+   linear project → a vector of n_embd (e.g. 768)
+
+   → now each image is a sequence of 196 "tokens"
+   → feed to transformer exactly like text
+```
+
+That's the entire ViT insight.
+
+**Text transformer vs ViT**:
+
+```
+  Text transformer (GPT-2):          Image transformer (ViT):
+  ──────────────────────              ──────────────────────────
+
+  "hello world" → tokens             image → split into patches
+  [512, 1059]                         [14×14 = 196 patches]
+      ↓                                    ↓
+  embed each token                    embed each patch
+  (lookup table)                       (linear projection)
+      ↓                                    ↓
+  add position embed                  add position embed
+      ↓                                    ↓
+  ┌──────────────┐                    ┌──────────────┐
+  │ Transformer   │                   │ Transformer   │
+  │ (12 layers)    │                  │ (12 layers)    │
+  │ attention +   │                   │ attention +    │
+  │ MLPs          │                   │ MLPs           │
+  └──────┬───────┘                    └──────┬───────┘
+         ↓                                    ↓
+  predict next token                    take [CLS] output
+                                         → classification head
+                                             → class label
+
+  Same architecture. Different task heads.
+```
+
+**Attention patterns in a trained ViT**:
+
+```
+  Visualize ViT attention maps (each head of each layer):
+
+  Query patch: center of image
+  Attention weights shown as brightness:
+
+  Layer 1, head 1:         Layer 6, head 3:        Layer 11, head 7:
+  ░░░░░░░░░░░░░░            ▒▒▒▒▒▒▒▒▒▒▒▒            ▓▓▓▓▓▓▓▓▓▓▓▓
+  ░░░░▒▒▒▒▒▒░░░░           ▒▒▒░░░░░░░▒▒▒            ░░░░▓▓▓▓▓▓░░░░
+  ░░▒▒▓▓▓▓▒▒░░░░            ▒░░░░░░░░░░░▒            ░░▓▓▓▓▓▓▓▓░░░░
+  ░░▒▒▓▓██▓▓▒▒░░            ▒░░░▓▓▓▓░░░░░            ░░▓▓██████▓▓░░
+  ░░░░▒▒▓▓▒▒░░░░            ▒▒░░▓▓▓▓░░░░▒            ░░▓▓██████▓▓░░
+  ░░░░░░░░░░░░░░            ▒▒▒░░░░░░░▒▒▒            ░░░░▓▓▓▓▓▓░░░░
+
+  Early: local (neighboring patches)
+  Middle: long-range selective
+  Late: object-focused
+```
+
+Different from CNN: ViT doesn't hard-code local bias. It can learn both local and global attention from data.
+
+**ViT scaling (why data matters)**:
+
+```
+  ViT vs CNN, accuracy on ImageNet:
+
+  Training data            CNN (ResNet)   ViT
+  ───────────────────       ────────────   ───
+  1M images (ImageNet)       76%          72%     CNN wins
+  14M images (ImageNet-21K)  78%          78%     tied
+  300M images (JFT-300M)      80%           84%     ViT wins ↑
+  10B images                 82%           88%     ViT wins more ↑
+
+  CNNs have built-in biases (locality).
+  ViTs must learn everything.
+  With enough data, ViT's flexibility wins.
+```
+
+**ViT sizes in the wild**:
+
+```
+  ViT-Base   (86M params)   12 layers, 768 dim, 12 heads
+  ViT-Large  (307M)          24 layers, 1024 dim, 16 heads
+  ViT-Huge   (632M)          32 layers, 1280 dim, 16 heads
+  ViT-G      (2B)            48 layers, 1408 dim, 16 heads (ViT-22B exists too)
+
+  Model in serious use today:
+    CLIP uses ViT-Large   (by OpenAI)
+    LLaVA uses CLIP's ViT-Large
+    Stable Diffusion uses ViT-Large as text-to-image encoder
+    DINOv2 uses ViT-L/H for self-supervised vision features
+```
+
+**The full ViT architecture**:
+
+```
+  Image (224×224×3)
+       │
+       ▼
+  Split into 16×16 patches  → 196 patches of 768 values each
+       │
+       ▼
+  Linear projection          → 196 vectors of n_embd
+       │
+       ▼
+  Prepend learnable [CLS] token → 197 tokens
+       │
+       ▼
+  Add positional embeddings   → encodes which patch is which
+       │
+       ▼
+  [transformer blocks × N]    → same as GPT!
+       │
+       ▼
+  Take [CLS] output            → aggregated image representation
+       │
+       ▼
+  Linear classifier            → class logits
+```
+
 ## Exercises
 
 1. Read the [ViT paper](https://arxiv.org/abs/2010.11929) abstract + Figure 1. Understand the patchify step.

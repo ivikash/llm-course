@@ -155,6 +155,217 @@ Diffusion dominates in 2022-2025. Flow matching may surpass it.
 - **DiT** (Peebles 2022): transformer backbone.
 - **EDM** (Karras 2022): unified formulation.
 
+## Visualize this
+
+**Diffusion as: noise → image**:
+
+```
+  t=1000 (pure noise)                              t=0 (clean image)
+  ┌──────────┐                                     ┌──────────┐
+  │░░▓▒▓░░░▓▓│                                     │  ╱╲╱╲╱╲   │
+  │▓░▒░▓░▓▒▓░│                                     │ cat photo │
+  │░▒▓░▓▒░░▒▓│                                     │ (clear)   │
+  │▓░▒▓░▒░▓▒░│                                     │           │
+  │░▓▒░▓░▓░▒▓│                                     │  ● ●       │
+  │▒░▓░▒▓░▓░▒│   ← 1000 tiny                      │ ┌──┘       │
+  │░▓░▒▓░▒░▓▒│     denoising                      │ cat.jpg    │
+  │▓░▒░▓░▓▒▓░│      steps                         │           │
+  └──────────┘  →→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→ └──────────┘
+
+   at each step,
+   a trained model
+   removes a bit of noise
+```
+
+**How training works (counterintuitive)**:
+
+```
+  Training a diffusion model:
+
+  Step 1: Take a clean training image x_0.
+  Step 2: Pick a random timestep t (0 to 1000).
+  Step 3: Compute the noised version:
+            x_t = sqrt(alpha_t) * x_0 + sqrt(1 - alpha_t) * noise
+  Step 4: Feed (x_t, t) to the neural network.
+  Step 5: Network predicts: "what noise was added?"
+  Step 6: Loss: MSE between predicted noise and actual noise.
+
+  That's it. The objective is "predict the noise".
+  At inference, we reverse: apply predicted-noise subtraction
+  step by step to go from random noise to clean image.
+```
+
+**Diffusion vs autoregressive generation**:
+
+```
+  Autoregressive (GPT for text):
+    token 1 → token 2 → token 3 → token 4 → ...
+    (linear, left-to-right, one-by-one)
+
+  Diffusion (for images):
+    ALL pixels noisy → ALL pixels less noisy → ... → ALL pixels clean
+    (each step updates all pixels simultaneously)
+```
+
+Why diffusion for images: images don't have a natural "order" like text. Diffusion lets all pixels evolve together.
+
+**The noise schedule**:
+
+```
+  x_t = sqrt(α_t) × x_0 + sqrt(1 - α_t) × noise
+
+  at t=0:    α=1,    x_0 = clean image (no noise)
+  at t=100:  α=0.95, mostly clean, 5% noise
+  at t=500:  α=0.50, half image half noise
+  at t=900:  α=0.05, mostly noise, 5% image
+  at t=1000: α=0,    pure noise (clean image forgotten)
+
+  Schedule (a decreasing function of t):
+      α
+     1│●●●●●●●●
+      │       ●●●
+      │          ●●●
+      │             ●●●
+      │                ●●●
+      │                   ●●●
+      │                      ●●●
+      │                         ●●●
+     0│                            ●●●●●
+      └─────────────────────────── t (0 to 1000)
+```
+
+**Latent diffusion (Stable Diffusion)**:
+
+```
+  Pixel space diffusion (slow):
+    512×512×3 = 786K pixels per image
+    Denoise all 786K values 1000× = lots of compute.
+
+  Latent diffusion:
+    1. Train a VAE: 512×512 image ↔ 64×64×4 latent (16k values)
+    2. Diffuse in latent space (16k values, much cheaper).
+    3. Decode latent → pixel image at the end.
+
+  ┌──────────┐            ┌──────────┐            ┌──────────┐
+  │  pixel   │   VAE      │  latent  │  diffusion │  pixel    │
+  │  image   │  encoder   │  (small) │  (here)    │  (output) │
+  │ 512×512  │ ──────────▶│ 64×64×4  │            │           │
+  └──────────┘            └──────────┘            └──────────┘
+                                                         ↑
+                                                   VAE decoder
+
+  Stable Diffusion uses this. ~10× faster than pixel diffusion.
+```
+
+**Text-to-image conditioning**:
+
+```
+  ┌──────────┐
+  │ "a cat    │  text prompt
+  │  on the   │
+  │  moon"    │
+  └────┬─────┘
+       │
+       ▼
+  ┌────────────┐
+  │ CLIP text   │  encode text → embedding
+  │ encoder     │
+  └──────┬─────┘
+         │
+         ▼
+  text embedding (77, 768)
+         │
+         │    +  noisy latent  (64, 64, 4)
+         │       │
+         ▼       ▼
+  ┌───────────────────────┐
+  │ U-Net                  │  predicts noise at this step
+  │ (with cross-attention │  conditioned on text embedding
+  │  to text embedding)    │
+  └────────────┬──────────┘
+               │
+               ▼
+        predicted noise
+        → subtract to get less noisy latent
+        → repeat for 30-50 steps
+```
+
+**Classifier-free guidance (CFG)**:
+
+```
+  At each denoising step, run the model TWICE:
+    noise_cond = model(x_t, text_embedding)        (with text)
+    noise_uncond = model(x_t, null_embedding)      (without text)
+
+  Combine:
+    noise_final = noise_uncond + guidance_scale × (noise_cond - noise_uncond)
+
+  Higher guidance_scale → more text-faithful but less natural.
+
+    CFG=1:   (no guidance, same as unconditional)
+    CFG=3:   slight text adherence, lots of natural variation
+    CFG=7:   good balance (default in most tools)
+    CFG=12:  strong text adherence, sometimes oversaturated
+    CFG=20:  over-saturated, "fried" look
+```
+
+**Run it yourself (one-pager)**:
+
+```python
+from diffusers import StableDiffusionPipeline
+import torch
+
+pipe = StableDiffusionPipeline.from_pretrained(
+    "runwayml/stable-diffusion-v1-5",
+    torch_dtype=torch.float16,
+).to("cuda")
+
+image = pipe(
+    "a cat astronaut on the moon, photorealistic",
+    num_inference_steps=30,    # try 20, 30, 50
+    guidance_scale=7.5,         # try 3, 7.5, 12
+).images[0]
+
+image.save("cat_moon.png")
+```
+
+4 GB VRAM. Runs on laptop GPUs. You've generated an image.
+
+**Denoising progression (what you'd see)**:
+
+```
+  step 0: ░░░▓▒░▓▓▒░▒▓  pure noise
+  step 5: ░▓▒▓░▒▓▒▒▓▒▓  vague shapes emerging
+  step 10: something gray, rounded? Cat-like?
+  step 20: clearly an animal. Colors appearing.
+  step 30: cat. Astronaut helmet. Moon-like surface.
+  step 50: polished photorealistic cat astronaut.
+```
+
+Modern schedulers can produce results in 20 steps; some ultra-fast ones in 4.
+
+**The diffusion model zoo (2024-2026)**:
+
+```
+  Open:
+    Stable Diffusion 1.5  (2022, 4GB, starting point)
+    Stable Diffusion XL   (2023, 8GB, much better quality)
+    Stable Diffusion 3   (2024, new architecture, DiT-based)
+    Flux.1 dev            (2024, 12B params, state-of-the-art open)
+
+  Closed:
+    DALL-E 3              (OpenAI, 2023)
+    Midjourney v6          (2024)
+    Imagen 3               (Google, 2024)
+    Ideogram               (2024, best at text in images)
+
+  Video diffusion:
+    Sora                   (OpenAI, 2024)
+    Veo 3                   (Google, 2024)
+    Open-Sora               (open reproduction)
+    CogVideoX              (open)
+```
+
 ## Exercises
 
 1. Read the DDPM abstract + algorithm 1 + 2. Trace the math.
