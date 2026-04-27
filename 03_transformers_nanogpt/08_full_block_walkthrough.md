@@ -114,6 +114,14 @@ For transformer models, **each layer has roughly 12 * n_embd^2 parameters**. Kee
 
 ## Visualize this
 
+**Watch data flow through a transformer block, shape by shape:**
+
+```viz
+{"viz": "transformer_block_flow"}
+```
+
+Press **▶ Play flow**. Each row lights up in sequence: LN → Q/K/V → reshape → attention → un-reshape → residual → LN → MLP → residual. Slide B, T, C, heads to see element counts scale. **Shape in = shape out** (`(B, T, C)`), which is why you can stack these blocks without any glue code.
+
 **One transformer block, the big picture**:
 
 ```

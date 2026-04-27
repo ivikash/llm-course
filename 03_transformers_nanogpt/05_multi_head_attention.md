@@ -73,6 +73,14 @@ Open `nanochat/nanochat/gpt.py`, class `CausalSelfAttention`. You'll see `n_kv_h
 
 ## Visualize this
 
+**See 8 heads attend in parallel, each with its own specialty:**
+
+```viz
+{"viz": "multi_head_attention"}
+```
+
+Pick a sentence. Each mini-grid shows one head's attention pattern. Head 1 (previous-token), Head 2 (start-of-sequence), Head 7 (attends to "the"), etc. Real trained heads specialize like this — some emerge from training alone.
+
 **Multi-head attention = N single-head attentions in parallel**:
 
 ```
