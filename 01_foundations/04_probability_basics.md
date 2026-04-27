@@ -101,6 +101,12 @@ In practice, PyTorch provides `F.cross_entropy(logits, targets)` which does soft
 
 ## Where this is in nanoGPT
 
+<div data-viz="kl_divergence"></div>
+*Drag Q's bars; see KL(P‖Q). Used in RLHF/GRPO as a leash keeping the RL-updated model close to the reference.*
+
+<div data-viz="log_probs_additive"></div>
+*Why language-model loss is a **sum** of log-probs, not a product of probs. Numerical stability.*
+
 Open `~/workspace/nanoGPT/model.py`, find the `forward` method of the `GPT` class (around line 180). You'll see:
 
 ```python

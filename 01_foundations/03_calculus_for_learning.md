@@ -6,6 +6,9 @@ If you can internalize this lesson, you've crossed a big bridge. This is where m
 
 ## The one idea: derivatives are "how fast is this changing?"
 
+<div data-viz="derivative_as_slope"></div>
+*Drag the red point along the curve; the dashed tangent's slope is the derivative at that x.*
+
 A **derivative** of a function `f(x)` at a point `x` is a single number answering: "if I nudge `x` slightly up, how much does `f(x)` change?"
 
 Written: `df/dx` or `f'(x)`. Just a number.
@@ -39,6 +42,9 @@ That rule - "nudge each weight opposite to its derivative" - is called **gradien
 
 ## From one weight to millions
 
+<div data-viz="partial_derivatives_2d"></div>
+*Drag the point on the loss surface. The red arrow is the negative gradient — the direction SGD takes.*
+
 In a real neural net you don't have one `w`, you have millions or billions of weights. A **gradient** is just the collection of all the individual derivatives, one per weight.
 
 - If `L` depends on weights `w_1, w_2, ..., w_n`, the gradient is the vector `(dL/dw_1, dL/dw_2, ..., dL/dw_n)`.
@@ -48,6 +54,9 @@ In a real neural net you don't have one `w`, you have millions or billions of we
 That is **gradient descent** on a neural network.
 
 ## Chain rule (the one rule you need to know the name of)
+
+<div data-viz="chain_rule_flow"></div>
+*A perturbation at x gets multiplied by f'(x), then by g'(f(x)). This **is** backprop, running forward.*
 
 Functions are nested: you compute `y = f(g(h(x)))`. How do you compute `dy/dx`? You multiply the derivatives of each stage.
 

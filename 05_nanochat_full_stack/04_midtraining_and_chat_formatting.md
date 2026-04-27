@@ -22,6 +22,15 @@ It continues the style, not the conversation. Midtraining fixes this.
 
 ## The chat template
 
+**Inspect what the model actually sees, 3 template formats:**
+
+```viz
+{"viz": "chat_template"}
+```
+
+Switch between ChatML, Llama-3, and nanochat templates. The left shows the nice JSON you write; the right shows the flat token stream the model actually sees, with special delimiter tokens highlighted in orange.
+
+
 A chat conversation becomes a token sequence:
 
 ```

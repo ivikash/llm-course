@@ -122,6 +122,15 @@ nanochat's engine is simpler - batched but no dynamic batching. Fine for single-
 
 ## Speculative decoding (bonus concept)
 
+**Watch speculative decoding in action:**
+
+```viz
+{"viz": "speculative_decoding"}
+```
+
+A cheap draft model proposes K tokens. Big model verifies in one pass. Accepted (green) are kept; first rejection (red) triggers correction. Adjust the acceptance rate slider — see how it controls speedup.
+
+
 An even fancier trick: use a small draft model to propose several tokens at once, then the big model verifies them in parallel. Often 2-4x speedup.
 
 Not in nanochat. In production serving (vLLM, tensor-rt) as an option.

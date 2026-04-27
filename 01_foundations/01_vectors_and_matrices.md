@@ -92,6 +92,12 @@ That kind of relationship *emerges* from training. You don't program it. This is
 
 ## A taste of what's coming
 
+<div data-viz="matrix_as_transformation"></div>
+*A 2×2 matrix sends the blue grid to the red grid. Rotations, scalings, shears — all linear maps.*
+
+<div data-viz="eigenvectors_2d"></div>
+*Step repeatedly. Random vectors collapse onto the top eigenvector — foundation of PCA and attention analysis.*
+
 In `nanoGPT/model.py`, when we say "the embedding dimension `n_embd` is 768", we mean every token is a 768-length vector inside the model. When we say "4 attention heads, head_dim 64", we mean each head works with 64-length vector pieces (4 x 64 = 256... wait, that's not 768 - let me redo: typical setup is n_embd=768, n_head=12, head_dim=64, since 12 x 64 = 768). Shapes, shapes, shapes.
 
 ## Visualize this

@@ -4,6 +4,15 @@ SFT gets you a working chatbot. RL (reinforcement learning) makes it better - sp
 
 ## The landscape
 
+**Train a reward model interactively (pairwise preference):**
+
+```viz
+{"viz": "reward_model"}
+```
+
+Click which response you think is better. Watch the rewards update via Bradley-Terry loss — chosen goes up, rejected goes down. This is literally how OpenAI's GPT-4 reward model was trained, just scaled to millions of pairs.
+
+
 Three major RL-for-LLMs techniques:
 
 ### 1. RLHF with PPO (the classical OpenAI pipeline)
