@@ -72,6 +72,15 @@ For building products: if your unit economics require low $/token, you pick smal
 
 ## Cost saving patterns
 
+**Prompt caching calculator — see the savings:**
+
+```viz
+{"viz": "prompt_caching"}
+```
+
+Slide prefix size up (big system prompts + RAG). Watch the cost delta between "no caching" and "with caching" grow. At 20K prefix tokens and 90% hit rate, expect ~80% cost savings and 10× latency drop on hit. This is the single biggest prod optimization in 2025.
+
+
 ### For training
 
 - **Spot instances**: 50-70% cheaper, preemptible.

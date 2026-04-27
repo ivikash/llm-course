@@ -19,6 +19,15 @@ If you grok Module 5's `nanochat/gpt.py`, you understand Llama's architecture.
 
 ## 2. Mixture of Experts (MoE)
 
+**Watch tokens get routed to experts:**
+
+```viz
+{"viz": "moe_routing"}
+```
+
+8 tokens, N experts, each token routes to top-k. Colored lines show which experts each token activates. Only those experts run (green = active, gray = idle). Mixtral-8×7B has 47B total params but uses only ~13B per token thanks to this.
+
+
 ### The problem
 
 Bigger = better for LLMs, but inference cost scales with model size. How do you get a "big model's knowledge" with a "small model's inference cost"?

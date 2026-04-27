@@ -76,6 +76,15 @@ Some code tweaks: optimizer creation now happens after FSDP wrap, not before. Fl
 
 ## When each strategy makes sense
 
+**Pipeline parallelism — watch the bubble:**
+
+```viz
+{"viz": "pipeline_bubble"}
+```
+
+Switch Mode to see naive pipeline (~25% utilization!), GPipe micro-batching, and 1F1B interleaving. Slide micro-batch count — more = smaller bubble = higher utilization. This is why you can't just "split the model across 4 GPUs" without thought.
+
+
 | Model size | Strategy |
 |-----------|----------|
 | ≤ 2B | DDP is fine on single GPU |
