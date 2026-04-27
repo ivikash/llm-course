@@ -160,6 +160,19 @@ Different heads often specialize - one for position, one for syntax, one for cor
 
 **Interactive**: https://bbycroft.net/llm - scroll to the attention section, click a token, watch the attention lines light up to other tokens. The single best attention visualization ever built. Open it now.
 
+**Or click around a simulated attention head right here:**
+
+```viz
+{"viz": "attention_interactive"}
+```
+
+Click any token. You'll see its attention pattern — a blue arc to each token it looks at, with thickness proportional to attention weight. Try:
+- Click **"it"** on head 1 (Coreference): it attends strongly to **"animal"**. Classic pronoun resolution.
+- Click **"was"** on head 3 (Syntactic): it attends to **"animal"** (its subject).
+- Click any token on head 2 (Local): mostly attends to the previous token.
+
+Real transformer heads specialize like this. You're looking at a hand-crafted example of a real phenomenon.
+
 **Another great tool**: BertViz (https://github.com/jessevig/bertviz) - visualize attention patterns in real pretrained models (BERT, GPT-2) inside a Jupyter notebook.
 
 ## Exercise

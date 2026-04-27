@@ -250,6 +250,22 @@ Run it, print the tensors, look at the heatmap. Every LLM, every transformer, do
 
 **3Blue1Brown's attention video**: https://www.youtube.com/watch?v=eMlx5fFNoYc - 26 min, animated attention. Watch after reading.
 
+**Or see every tensor in the attention pipeline here:**
+
+```viz
+{"viz": "attention_math"}
+```
+
+Every stage of attention laid out: Q, K, V matrices (input), Q·K⊤/√d (raw scores), softmax (weights, summing to 1 per row), then weights @ V (output). Toggle the causal mask on/off. Randomize to see different patterns. This is what nanoGPT's `CausalSelfAttention.forward` computes, step by step.
+
+**The causal mask, live:**
+
+```viz
+{"viz": "causal_mask"}
+```
+
+Slide the sequence length. Green cells are allowed attention; red cells are blocked (set to -∞ before softmax). Each row shows: "which past/present positions can this query see?" The lower-triangular pattern is the signature of autoregressive models.
+
 **bbycroft.net/llm's attention section**: click into one token, literally watch Q vectors light up, dot-product with all K vectors, softmax to weights, sum V vectors. Interactive. Takes 2 min.
 
 ## Exercises

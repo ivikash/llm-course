@@ -115,6 +115,20 @@ KV cache makes generation roughly 10-100x faster for long outputs.
 
 ChatGPT's "temperature" slider literally does this.
 
+**Try all three samplers live:**
+
+```viz
+{"viz": "sampling_strategies"}
+```
+
+Same logits (12 candidate next tokens). Slide temperature, top-k, top-p. Blue bars = probabilities after filtering. Press "Sample 20×" — red marks show the empirical distribution after 20 samples.
+
+Try:
+- Temperature 0.1, top-k 12, top-p 1 → nearly deterministic, always picks "cat"
+- Temperature 1, top-k 3 → random among top 3
+- Temperature 1.5, top-p 0.9 → adaptive nucleus; 5-6 candidates
+- Temperature 3 → uniform chaos
+
 **Autoregressive generation, step by step**:
 
 ```

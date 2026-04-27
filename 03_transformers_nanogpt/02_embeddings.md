@@ -144,7 +144,18 @@ You'll see: vowels cluster together, consonants cluster together, newlines/space
 
 **bbycroft.net/llm** shows embeddings as columns of colored numbers - open it and hover to see specific vector values. Beautiful visualization.
 
-**Interactive classic: TensorFlow's Embedding Projector** (https://projector.tensorflow.org) - pre-loaded with word2vec. Rotate a 3D point cloud of 10,000 words. Search for "king", see its neighbors.
+**Interactive classic: TensorFlow's Embedding Projector** (https://projector.tensorflow.org) - rotate a 3D point cloud of 10,000 words. Search for "king", see its neighbors.
+
+**Or play with embedding arithmetic here:**
+
+```viz
+{"viz": "embedding_2d"}
+```
+
+Pre-trained word embeddings projected to 2D. Pick three words (A − B + C). The **green circle** shows where the result lands — and finds the nearest actual word. Try:
+- `king − man + woman` → queen
+- `paris − france + germany` → berlin
+- `doctor − man + woman` → nurse (reveals real-world gender bias in training data)
 
 ## Exercise
 

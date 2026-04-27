@@ -139,6 +139,14 @@ plt.xlabel("position"); plt.ylabel("embedding dim")
 plt.savefig("sinusoidal_pos.png")
 ```
 
+**Or see it live here:**
+
+```viz
+{"viz": "positional_encoding"}
+```
+
+Slide position count and dimension. Fast-oscillating dims (left) encode fine-grained position; slow dims (right) encode coarse. Each row is deterministic — no training needed. This is the original 2017 transformer's positional encoding.
+
 You'll see stripes at different frequencies across the dimensions. Beautiful.
 
 **RoPE (nanochat, Llama, modern LLMs)**:

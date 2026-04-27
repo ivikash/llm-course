@@ -120,6 +120,14 @@ nanochat's tokenizer.py and chat_format.py define these. In nanoGPT, only `<|end
 
 **Tiktokenizer in action**: https://tiktokenizer.vercel.app/
 
+**Or try it live here** (simulated BPE, same idea):
+
+```viz
+{"viz": "live_tokenizer"}
+```
+
+Type anything. Switch between character-level, word-level, and BPE modes. Watch how BPE compresses common English patterns like " the", "ing", "tion" into single tokens. Bytes-per-token = compression ratio (higher = better).
+
 Paste this exactly and watch how it tokenizes:
 
 ```
