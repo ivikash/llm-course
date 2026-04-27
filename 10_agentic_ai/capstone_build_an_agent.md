@@ -241,6 +241,291 @@ So Claude Desktop / Cursor can use your tools.
 ### F. Deploy
 Wrap in a web UI or Slack bot.
 
+## Visualize this
+
+**The capstone deliverables (visual)**:
+
+```
+  ┌───────────────────────────────────────────────┐
+  │         YOUR AGENT CAPSTONE                     │
+  │                                                  │
+  │  ┌───────────────────┐                            │
+  │  │  agent_repo/       │                            │
+  │  │   README.md        │ ← project description       │
+  │  │   agent.py          │ ← ~100-200 lines           │
+  │  │   tools.py          │ ← tool definitions          │
+  │  │   eval.py           │ ← 10+ test cases            │
+  │  │   trajectories/     │ ← logged runs               │
+  │  │   requirements.txt                              │
+  │  └───────────────────┘                            │
+  │                                                  │
+  │  ┌───────────────────┐                            │
+  │  │  agent_report.md   │ ← the writeup              │
+  │  └───────────────────┘                            │
+  │                                                  │
+  │  Published to:                                    │
+  │   - GitHub (source code)                          │
+  │   - your blog (writeup)                            │
+  │   - Twitter/X (announce with key chart)           │
+  └───────────────────────────────────────────────┘
+```
+
+**Suggested options, one-liners**:
+
+```
+  A. Research agent          "Given a topic, produce a 1-page brief"
+  B. Code fixer               "Given failing tests, produce a passing PR"
+  C. Data analyst             "Given a CSV + question, produce answer + chart"
+  D. Customer support         "RAG over your docs → answer with citations"
+  E. Your own idea            (best option if you have motivation!)
+
+  Pick ONE. Scope tight. Ship.
+```
+
+**What success looks like**:
+
+```
+  Task: "Summarize latest AI news about LLMs."
+       │
+       ▼
+  Your agent runs (3 minutes, 5 tool calls):
+    - search_web("LLM news 2026 latest")
+    - fetch_url("https://arxiv.org/...")
+    - fetch_url("https://anthropic.com/...")
+    - summarize content
+    - output
+
+  Output:
+  ┌────────────────────────────────────────┐
+  │ AI News Brief: Latest on LLMs            │
+  │                                          │
+  │ 1. Anthropic released Claude 4.0 with    │
+  │    improved reasoning (link)              │
+  │                                          │
+  │ 2. DeepSeek announced R2 with ...         │
+  │                                          │
+  │ 3. Meta released Llama-4 with native     │
+  │    multimodal (link)                     │
+  │                                          │
+  │ Sources: arxiv, company blogs, news       │
+  └────────────────────────────────────────┘
+
+  Total cost: $0.05
+  Time: 3 minutes
+  Tool calls: 5
+```
+
+**A working template (~100 lines you can modify)**:
+
+```python
+# agent.py - research agent template
+import json, os
+from openai import OpenAI
+from duckduckgo_search import DDGS
+import requests
+from bs4 import BeautifulSoup
+
+client = OpenAI()
+
+# ─── Tools ──────────────────────────────────────
+
+def search_web(query):
+    with DDGS() as ddgs:
+        return [
+            {"title": r["title"], "url": r["href"], "snippet": r["body"]}
+            for r in ddgs.text(query, max_results=5)
+        ]
+
+def fetch_url(url):
+    try:
+        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(r.text, "html.parser")
+        for t in soup(["script", "style", "nav", "footer"]):
+            t.decompose()
+        text = soup.get_text(separator="\n", strip=True)
+        return text[:5000]
+    except Exception as e:
+        return f"Error: {e}"
+
+# ─── Tool schemas ──────────────────────────────
+
+tools = [
+    {"type":"function","function":{
+        "name":"search_web","description":"Search the web.",
+        "parameters":{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}}},
+    {"type":"function","function":{
+        "name":"fetch_url","description":"Fetch text from a URL.",
+        "parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}},
+]
+
+TOOL_FUNCS = {"search_web": search_web, "fetch_url": fetch_url}
+
+# ─── Agent loop with budget caps ──────────────
+
+def research(task, max_steps=15, max_cost=0.50):
+    messages = [
+        {"role":"system","content":"You are a research agent. Use tools to gather info, then produce a concise 200-word brief with source URLs."},
+        {"role":"user","content":f"Research: {task}"},
+    ]
+    total_cost = 0.0
+
+    for step in range(max_steps):
+        r = client.chat.completions.create(
+            model="gpt-4o-mini", messages=messages, tools=tools,
+        )
+        m = r.choices[0].message
+        messages.append(m.model_dump())
+
+        # Cost tracking
+        total_cost += r.usage.prompt_tokens * 0.00015 / 1000
+        total_cost += r.usage.completion_tokens * 0.0006 / 1000
+        if total_cost > max_cost:
+            return f"COST CAP EXCEEDED (${total_cost:.3f})"
+
+        if not m.tool_calls:
+            print(f"Done in {step} steps, cost ${total_cost:.3f}")
+            return m.content
+
+        for tc in m.tool_calls:
+            args = json.loads(tc.function.arguments)
+            try:
+                result = TOOL_FUNCS[tc.function.name](**args)
+                result = json.dumps(result) if isinstance(result, list) else str(result)
+            except Exception as e:
+                result = f"Error: {e}"
+            messages.append({
+                "role":"tool","tool_call_id":tc.id,"content":result[:4000]
+            })
+
+    return "MAX STEPS REACHED"
+
+if __name__ == "__main__":
+    print(research("state of open-source LLMs 2025"))
+```
+
+**Eval script** (run 10 test cases):
+
+```python
+# eval.py
+from agent import research
+
+test_cases = [
+    "state of open-source LLMs in 2025",
+    "best Python web frameworks",
+    "differences between PostgreSQL and MySQL",
+    "current progress on fusion energy",
+    "what is Retrieval-Augmented Generation",
+    # ... 10 more
+]
+
+for task in test_cases:
+    result = research(task)
+    print(f"--- {task} ---")
+    print(result[:300])
+    print()
+```
+
+**The report template**:
+
+```markdown
+# My Research Agent
+
+## What it does
+Given a topic, searches the web + fetches pages + summarizes.
+
+## Architecture
+Tools: search_web (DuckDuckGo), fetch_url (requests+BS4)
+Loop: ReAct-style agent loop
+Model: GPT-4o-mini with cost cap $0.50/task
+
+## Results (10 test cases)
+- Success rate: 9/10 (90%)
+- Average cost: $0.08 per task
+- Average steps: 5.2
+- Average wall time: 90 seconds
+
+## Sample output
+[paste a generated brief here]
+
+## Interesting failures
+Task 7 ("quantum computing breakthroughs") timed out - search returned low-quality results; agent looped.
+
+## What I learned
+- Cost caps are essential (prevents runaway loops)
+- Error handling for tool failures is critical
+- The model sometimes fetches irrelevant URLs (need better filtering)
+
+## What I'd improve next
+- Add reranking to filter retrieved pages
+- Add citation enforcement in prompt
+- Cache duplicate searches
+
+## Code
+https://github.com/your-handle/research-agent
+```
+
+**Publishing checklist**:
+
+```
+  [ ] GitHub repo with README
+  [ ] Blog post explaining it
+  [ ] Screenshot of 1-2 good outputs
+  [ ] Actual numbers: success rate, cost, time
+  [ ] Failure modes acknowledged
+  [ ] Posted to Twitter/X / LinkedIn
+  [ ] (Optional) HN / Reddit post
+```
+
+This is your interview artifact. Employers love seeing:
+  - Shipping ability
+  - Evaluation discipline
+  - Honest failure reporting
+  - Clear writing
+
+**What to build next** (once capstone is done):
+
+```
+  Add memory:
+    Remember users across sessions (Lesson 10.9)
+
+  Add reasoning:
+    Wire in o1-mini or R1 for harder problems
+
+  Multi-agent:
+    Add a "critic" that reviews briefs before returning
+
+  Publish as MCP server:
+    So Claude Desktop / Cursor can use your tools
+
+  Deploy as a chat UI:
+    Wrap in nanochat-style web UI for users
+
+  Monetize:
+    SaaS around your specialty. Many agent products today
+    are thin wrappers on exactly this kind of pipeline.
+```
+
+**Final celebration**:
+
+```
+  When you complete this capstone, you've done what ~99% of people
+  describing themselves as "AI professionals" haven't:
+
+  ✓ Built and shipped a real agent
+  ✓ With tools, loop, evaluation, safety
+  ✓ With numbers to quote
+  ✓ With code others can run
+
+  You can use this on your resume.
+  You can discuss it in interviews with specifics.
+  You can extend it into a product.
+
+  You've crossed from "learning about AI" to "doing AI".
+  That's the biggest jump in the course.
+
+  Congratulations!
+```
+
 ## What this capstone earns you
 
 You have:

@@ -209,6 +209,256 @@ Undervalued: simple two-agent patterns (proposer + critic, researcher + writer) 
 - **MetaGPT** (Hong 2023): https://arxiv.org/abs/2308.00352
 - **Debate as a tool** (Irving 2018, revisited 2023): https://arxiv.org/abs/1805.00899
 
+## Visualize this
+
+**Multi-agent patterns, side by side**:
+
+```
+  Pattern 1: Manager + Workers
+  ────────────────────────────
+                Manager
+               (decomposes)
+             ╱     │     ╲
+            ▼      ▼      ▼
+        Worker  Worker  Worker
+        (specialized subtasks)
+             ╲     │     ╱
+              ▼    ▼    ▼
+                Manager
+                (synthesizes)
+                   │
+                   ▼
+                answer
+
+  Use: research, writing a report, complex projects
+  Works well with: clear subtask decomposition
+
+
+  Pattern 2: Critic + Proposer (iterative refinement)
+  ────────────────────────────────────────────────────
+    Proposer: "Here's the answer"
+       │
+       ▼
+    Critic: "Flaw: ... Improve this."
+       │
+       ▼
+    Proposer: "Revised answer"
+       │
+       ▼
+    Critic: "Looks good."  (or loops)
+       │
+       ▼
+    Final answer
+
+  Use: code review, writing with quality gates, carefully-reasoned output
+
+
+  Pattern 3: Debate
+  ─────────────────
+    Agent A: "The answer is X because..."
+    Agent B: "I disagree. The answer is Y because..."
+    Agent C: "A's argument is flawed because..."
+    Agent D: "Consensus: probably X, slight chance Y."
+
+  Use: ambiguous questions, testing robustness
+
+
+  Pattern 4: Assembly Line
+  ────────────────────────
+    Input ─▶ Parser ─▶ Summarizer ─▶ Formatter ─▶ Output
+             (agent)    (agent)       (agent)
+
+  Use: document processing pipelines
+
+
+  Pattern 5: Role-playing committee
+  ─────────────────────────────────
+    CEO:      "We should do X for revenue."
+    Engineer: "X is technically hard because..."
+    Lawyer:   "X has regulatory concerns..."
+    UX:       "X would hurt user experience..."
+    Decision: weighted by roles
+
+  Use: brainstorming, decision framing (fun, but real decisions
+       still need humans)
+```
+
+**When multi-agent helps vs hurts**:
+
+```
+  Multi-agent HELPS when:
+    ✓ Clear specialization (coder + reviewer, researcher + writer)
+    ✓ Parallel work possible
+    ✓ Different models best for different subtasks (cheap planner + smart coder)
+    ✓ Quality > speed (extra passes ok)
+
+  Multi-agent HURTS when:
+    ✗ Simple task (overhead > benefit)
+    ✗ Strict latency requirements
+    ✗ Agents talk past each other
+    ✗ Errors compound (each agent adds noise)
+    ✗ Harder to debug
+```
+
+**Communication overhead**:
+
+```
+  Single agent on task:
+    1 LLM call with full context
+    Latency: 1× base
+    Cost: 1× base
+
+  3-agent pipeline (A → B → C):
+    3 LLM calls (each with full context of prior output)
+    Latency: 3× base (sequential)
+    Cost: 3× base
+
+  Manager + 3 workers + synthesis:
+    1 (plan) + 3 (parallel) + 1 (synthesize) = 5 LLM calls
+    Latency: 3× base (if parallel)
+    Cost: 5× base
+```
+
+**Debate-style quality gains**:
+
+```
+  Single agent: ~70% accuracy on hard tasks.
+  5-agent debate: ~85% accuracy (but 5× cost).
+
+  Is it worth it? Depends on value of the extra 15%.
+  For critical decisions: yes.
+  For casual chat: no.
+```
+
+**The "all agents agree" failure mode**:
+
+```
+  Intended:
+    Critic challenges Proposer → deeper thinking.
+
+  Reality:
+    Critic: "Looks good to me."
+    Proposer: "Thanks! Here's another answer."
+    Critic: "Looks good too."
+    (sycophancy loop)
+
+  LLMs are trained on human preferences, which often favor
+  polite agreement. Without explicit adversarial training,
+  critics agree too easily.
+
+  Fix:
+    Explicit prompt: "Be adversarial. Find at least 3 flaws."
+    Different base models for each role.
+    System prompts for distinct personalities.
+```
+
+**Frameworks for multi-agent**:
+
+```
+  AutoGen (Microsoft):
+    Chat-based agent conversation.
+    Supports human-in-the-loop.
+    Good for: proposer-critic patterns.
+
+  CrewAI:
+    Role-based (researcher, writer, etc.).
+    Goal-driven.
+    Good for: exploratory pipelines.
+
+  MetaGPT:
+    Simulates software company (CEO, CTO, engineer, QA).
+    Ambitious; production reliability mixed.
+
+  LangChain + LangGraph:
+    Graph-based flow.
+    Explicit state management.
+
+  Swarm (OpenAI, 2024 experimental):
+    Lightweight, handoff-based multi-agent.
+
+  Hand-rolled:
+    A dict of agents, a scheduler, message passing.
+    ~200 lines for 3-5 agents.
+```
+
+**Example: proposer-critic in 50 lines**:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+def agent(system, messages):
+    r = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"system","content":system}] + messages,
+    )
+    return r.choices[0].message.content
+
+def run(task, max_rounds=3):
+    proposal = agent(
+        "You write code. Start with a solution.",
+        [{"role":"user","content":task}],
+    )
+
+    for round_i in range(max_rounds):
+        critique = agent(
+            "You are a strict code reviewer. Find flaws in the proposal. "
+            "Be specific. If it's perfect, say 'APPROVED'.",
+            [{"role":"user","content":f"Task: {task}\n\nProposal:\n{proposal}"}],
+        )
+
+        if "APPROVED" in critique:
+            print(f"Round {round_i}: approved.")
+            return proposal
+
+        proposal = agent(
+            "You wrote this code. The reviewer gave feedback. Revise it.",
+            [{"role":"user","content":f"Task: {task}\n\nPrevious:\n{proposal}\n\nFeedback:\n{critique}"}],
+        )
+
+    return proposal
+
+result = run("Write a Python function to check if a string is a palindrome.")
+print(result)
+```
+
+Two agents. One writes, one critiques. Quality usually improves over direct generation.
+
+**The actual research takeaway**:
+
+```
+  Multi-agent isn't magic.
+
+  Often:
+    single really good agent (GPT-4o) ≥ 3 mediocre agents
+    single agent + retry ≥ multi-agent without retry
+
+  When multi-agent genuinely helps:
+    - Specialized roles (research + writing)
+    - Adversarial dynamics (proposer + critic)
+    - Parallel independent subtasks
+
+  For most real products:
+    Start with a single agent.
+    Upgrade to multi-agent only when data shows gains.
+```
+
+**My take (controversial)**:
+
+```
+  In 2026, I see multi-agent products that:
+    - Marketing: "5 specialized AI agents collaborating!"
+    - Reality:    1 agent + fancy prompting
+
+  Genuinely multi-agent value is real but narrow.
+
+  The killer pattern: proposer-critic for writing/code.
+  Clear quality gain.
+
+  Most other multi-agent uses are over-engineered.
+```
+
 ## Exercises
 
 1. Implement proposer + critic for code writing. Proposer writes, critic reviews, proposer revises. Up to 3 rounds.

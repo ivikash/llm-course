@@ -244,6 +244,340 @@ Production systems increasingly use a mix: explicit user profile + retrieval ove
 - **Generative Agents** (Park 2023) uses a memory stream model.
 - **Mem0** (OSS memory layer): https://github.com/mem0ai/mem0
 
+## Visualize this
+
+**The memory hierarchy**:
+
+```
+  Level 1: in-context (short-term)
+  ─────────────────────────────────
+  ┌───────────────────────────┐
+  │  Current conversation      │  limited by model context (128K-1M)
+  │  "Hi" "Hello" "2+2" "4"    │  disappears when session ends
+  └───────────────────────────┘
+
+  Level 2: summarization
+  ───────────────────────
+  ┌───────────────────────────┐
+  │  Summary of old turns       │   compressed older context
+  │  "User is Vikas, developer  │
+  │   learning ML..."           │
+  └───────────────────────────┘
+
+  Level 3: retrieval (RAG-style)
+  ───────────────────────────────
+  ┌───────────────────────────┐
+  │  Every turn stored as       │  retrieve when relevant
+  │  embedding in vector DB    │
+  └───────────────────────────┘
+
+  Level 4: structured facts
+  ──────────────────────────
+  ┌───────────────────────────┐
+  │  User: Vikas                │
+  │  Job: software eng           │
+  │  Prefers: English             │
+  │  Projects: [LLM course, ...]  │
+  └───────────────────────────┘
+
+  Level 5: OS-like (MemGPT / Letta)
+  ──────────────────────────────────
+  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+  │ Core (hot)  │  │ Recall       │  │ Archive     │
+  │ always in   │  │ (retrieve)   │  │ (offloaded) │
+  │ context     │  │              │  │              │
+  └─────────────┘  └─────────────┘  └─────────────┘
+
+  Level 6: graph / knowledge base
+  ────────────────────────────────
+       Vikas ─── works_at ─── [company]
+         │
+         │── learning ───── LLMs
+         │
+         │── uses ───────── nanoGPT ─── forked ─── [repo]
+```
+
+Each level adds capability at complexity cost.
+
+**In-context (simplest) pros and cons**:
+
+```
+  Model sees full conversation in every call.
+
+  Pros:
+    ✓ Simple, no infrastructure needed
+    ✓ Perfect recall within context
+    ✓ Works out of the box
+
+  Cons:
+    ✗ Context size limits (even 1M tokens eventually runs out)
+    ✗ Cost grows linearly with context length
+    ✗ "Lost in the middle": models attend poorly to middle content
+    ✗ Disappears when session ends
+```
+
+**Retrieval-based memory flow**:
+
+```
+  Session start: user says "Hello!"
+      │
+      ▼
+  Embed user message → store with metadata
+      │
+      ▼
+  Session continues. User asks: "Did I tell you about my project?"
+      │
+      ▼
+  Embed query. Search memory.
+      │
+      ▼
+  Retrieved: "User's project: LLM course, ML learning, building nanoGPT-style..."
+      │
+      ▼
+  Inject into current context:
+      System: You know this about the user: ...
+      User: Did I tell you about my project?
+      │
+      ▼
+  LLM answers with continuity.
+```
+
+**Structured memory (best for products)**:
+
+```
+  Schema:
+    user_id: INTEGER
+    name: STRING
+    preferences: JSON
+    facts: LIST[STRING]
+    last_seen: TIMESTAMP
+
+  Extraction (after every conversation):
+    LLM reads conversation → extracts facts as JSON
+    Example output:
+      {"facts": ["Vikas is learning Python-to-LLM.",
+                 "Vikas prefers Markdown notes.",
+                 "Vikas has access to nanoGPT and nanochat."]}
+
+  Storage:
+    INSERT INTO facts VALUES ('vikas', 'is learning...', NOW())
+
+  Retrieval (before every conversation):
+    SELECT fact FROM facts WHERE user_id = 'vikas'
+    → prepend to system prompt
+
+  Pros:
+    ✓ Editable (user can see / correct / delete facts)
+    ✓ Efficient (small, tabular queries)
+    ✓ Debuggable (you can inspect what's remembered)
+```
+
+**60-line memory-augmented agent**:
+
+```python
+import sqlite3, json, openai
+
+client = openai.OpenAI()
+conn = sqlite3.connect("memory.db")
+conn.execute("CREATE TABLE IF NOT EXISTS facts (user_id, fact, created_at)")
+
+def get_facts(uid):
+    return [r[1] for r in conn.execute(
+        "SELECT * FROM facts WHERE user_id=?", (uid,)
+    ).fetchall()]
+
+def add_fact(uid, fact):
+    conn.execute("INSERT INTO facts VALUES (?, ?, datetime('now'))", (uid, fact))
+    conn.commit()
+
+def chat(uid, msg):
+    facts = get_facts(uid)
+    facts_str = "\n".join(f"- {f}" for f in facts) or "(none yet)"
+    system = f"You are an assistant. Known facts about this user:\n{facts_str}"
+
+    reply = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"system","content":system},
+                  {"role":"user","content":msg}]
+    ).choices[0].message.content
+
+    # Extract new facts
+    extract = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user",
+                   "content":f"Extract durable facts about this user from their message."
+                             f" Reply JSON: {{\"facts\":[...]}}\n\nMessage: {msg}"}],
+        response_format={"type":"json_object"},
+    ).choices[0].message.content
+
+    for fact in json.loads(extract).get("facts", []):
+        add_fact(uid, fact)
+
+    return reply
+
+# Test multi-session:
+print(chat("user1", "Hi, I'm Vikas."))
+print(chat("user1", "I love Thai food."))
+print(chat("user1", "What do you know about me?"))
+# → should mention name and food preference
+```
+
+Real memory across sessions, persisted in SQLite. ~60 lines.
+
+**The forgetting problem**:
+
+```
+  Memory grows indefinitely.
+  After 6 months:
+    - 10,000+ facts stored
+    - Many outdated ("last_seen: 2024-01-01")
+    - Many redundant ("user likes Thai" × 10)
+    - Retrieval quality degrades (too much noise)
+
+  Strategies:
+
+  1. Decay:
+     Score facts by recency; older ones weight less in retrieval.
+
+  2. Consolidation:
+     Periodically: LLM summarizes many facts into fewer.
+     "User has mentioned Thai food 10 times" → "User loves Thai food"
+
+  3. Explicit expiration:
+     Mark facts "transient" vs "permanent".
+     Delete transients after 30 days.
+
+  4. User control:
+     Let user see/edit/delete facts they don't want remembered.
+     Essential for trust.
+```
+
+**MemGPT / Letta: OS-like memory**:
+
+```
+  Memory is divided into regions:
+
+  Core memory (always in context):
+    {user_name: "Vikas", pronouns: "he/him",
+     current_goal: "learning ML"}
+    → 1-2KB, stays in every LLM call.
+
+  Recall memory (retrievable):
+    past conversation turns
+    stored in vector DB
+    retrieved when topically relevant
+
+  Archival memory (offloaded):
+    old conversations, large documents
+    paged into recall when needed
+
+  Tools the agent gets:
+    - read_memory(query)       ← search
+    - insert_memory(content)    ← add
+    - delete_memory(id)         ← remove
+    - modify_core(key, value)   ← update pinned memory
+
+  Agent manages its own memory via tool calls.
+  Mimics human "I'll remember this" behavior.
+```
+
+**ChatGPT's memory feature (April 2024+)**:
+
+```
+  User says:
+    "Remember that I prefer concise responses."
+  ChatGPT says:
+    "Got it. I'll keep responses concise."
+
+  Behind the scenes:
+    → OpenAI stores: "User prefers concise responses."
+    → Added to system prompt in future conversations.
+    → User can view/edit in Settings → Personalization → Memory.
+
+  This is basically the structured memory pattern,
+  in a production UX.
+```
+
+**Privacy considerations**:
+
+```
+  Memories often contain sensitive info:
+    - User's name, location, relationships
+    - Health conditions, political views
+    - Work secrets, financial data
+
+  Must-dos:
+    ✓ Encrypt at rest
+    ✓ User-visible: show what's remembered
+    ✓ User-deletable: right to be forgotten
+    ✓ Multi-user isolation (no cross-user leaks!)
+    ✓ Expiration policies
+    ✓ Compliance (GDPR, etc.)
+
+  Real-world failures:
+    "AI assistant remembered user A's password.
+     User B accidentally gets it in response."
+  → always partition by user_id strictly.
+```
+
+**The memory-capability tradeoff**:
+
+```
+  More memory = more personalized = better UX
+    ↕ (but)
+  More memory = more context = more confused = more expensive
+
+  Sweet spot:
+    Keep 10-50 "important" facts in core.
+    Use retrieval for long history.
+    Periodically consolidate.
+
+  Don't try to remember everything.
+  Remember what matters for the user's goals.
+```
+
+**Real products using memory**:
+
+```
+  ChatGPT Memory (April 2024):
+    User-visible + editable fact list.
+
+  Claude Projects:
+    Per-project memory scope.
+
+  character.ai:
+    Persistent character personalities + user history.
+
+  Letta (startup from MemGPT authors):
+    Hosted stateful agents as a service.
+
+  Mem0 (open source):
+    Memory layer you can drop into any LLM app.
+```
+
+**Common failures**:
+
+```
+  1. Memories contradicting:
+     User said "I love cats" in January.
+     User said "I hate cats" in April (got allergies).
+     Agent pulls old fact. Says something weird.
+     Fix: timestamp facts; prefer newer; detect contradictions.
+
+  2. Hallucinated memories:
+     Agent says "Remember when we talked about X?"
+     You never did.
+     Fix: strict extraction; verify facts are in the source.
+
+  3. Privacy leaks:
+     Multi-user system; bug allows user A to see user B's memory.
+     Fix: test isolation rigorously.
+
+  4. Stale memories:
+     Facts about your life 3 years ago, still cited.
+     Fix: expire / decay old facts.
+```
+
 ## Exercises
 
 1. Extend the 60-line snippet: instead of SQLite, use a vector DB. Embed facts. At query time, retrieve relevant facts, not all.

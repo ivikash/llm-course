@@ -247,6 +247,292 @@ jobs:
 
 Treat eval as tests. PR should improve or match baseline or be explicitly justified.
 
+## Visualize this
+
+**Why agent evaluation is hard**:
+
+```
+  LLM evaluation:
+    single call → single output → grade
+
+  Agent evaluation:
+    task → many steps, tool calls, decisions, retries → outcome
+       │
+       ├── multi-step trajectory
+       ├── partial successes
+       ├── non-deterministic paths
+       ├── cost varies per run
+       └── human judgment often needed
+```
+
+**Key agent metrics**:
+
+```
+  Success rate:
+    Did the agent complete the task?
+    Binary per task. Aggregate: % correct.
+
+  Step-level correctness:
+    Of N steps, how many correct?
+    Granular; shows where agent fails.
+
+  Efficiency:
+    - Steps to solve
+    - Tokens consumed
+    - Wall-clock time
+    - $ cost
+
+  Robustness:
+    Same task, slight perturbation, does it still work?
+
+  Faithfulness (for RAG):
+    Does the answer match the retrieved docs?
+    Or hallucinate?
+
+  Safety:
+    Does it refuse harmful requests?
+    Confirm before destructive actions?
+```
+
+**Agent benchmarks (2026)**:
+
+```
+  GAIA (general assistant):
+    466 real-world tasks.
+    Requires tools, reasoning, multi-modal.
+    Top scores: ~50% (top agents). Humans: 92%.
+
+  SWE-Bench (software engineering):
+    2,294 real GitHub issues.
+    Agent must produce PR that passes tests.
+    Top scores:
+      GPT-4 (2023): ~20%
+      Claude 3.5 Sonnet (2024): ~49%
+      o1-preview: ~41%
+      Devin: ~14% (early); now better
+      Amazon Q Developer: ~47%
+    Humans: ~100% (with effort).
+
+  WebArena (web navigation):
+    812 tasks on 5 websites.
+    Top scores: ~40%.
+
+  AgentBench (diverse):
+    OS tasks, DB queries, games, tool use.
+    Composite score.
+
+  ToolEval:
+    Pure tool-use accuracy.
+
+  Custom internal:
+    Most production teams build their own.
+    Most valuable; hardest to publish.
+```
+
+**Building your own agent eval (recommended)**:
+
+```
+  Step 1: Define tasks (20-50 is enough to start)
+    Each task:
+      - Clear description
+      - Ground-truth answer (or checker function)
+      - Category (for stratified analysis)
+
+  Step 2: Capture trajectories
+    Log:
+      - Every LLM call (prompt + response)
+      - Every tool call (name + args + result)
+      - Wall-clock time
+      - Token count + cost
+
+  Step 3: Grade
+    Automated: exact match, regex, LLM-as-judge.
+    Manual: for ambiguous cases.
+
+  Step 4: Analyze
+    - Overall success rate
+    - Per-category breakdown
+    - Failure cluster analysis (what types fail?)
+    - Cost/quality Pareto
+
+  Step 5: Regression test
+    Run eval on every change.
+    Fail the PR if metrics drop.
+```
+
+**LLM-as-judge pattern**:
+
+```
+  Task: "What's the capital of France?"
+  Agent answer: "The capital of France is Paris."
+  Ground truth: "Paris"
+
+  Judge prompt to GPT-4:
+    "Given the task, the correct answer, and the agent's answer,
+     determine if the agent's answer is correct.
+     Task: What's the capital of France?
+     Correct: Paris
+     Agent: The capital of France is Paris.
+     Is the agent's answer correct? Reply: YES or NO."
+
+  GPT-4: "YES"
+
+  → Automated grading. Fuzzy matching via LLM.
+  Caveats:
+    - Judge can be biased (longer = better in its view)
+    - Always human-spot-check a sample
+```
+
+**Cost-quality Pareto plot**:
+
+```
+  quality
+   (success %)
+       │
+       │     ●● Claude 3.5 Sonnet (90%, $0.50)
+       │        ●● GPT-4o (88%, $0.10)
+       │   ● GPT-4 (85%, $0.30)
+       │     ● DeepSeek-V3 (82%, $0.01)
+       │   ●  Claude 3.5 Haiku (75%, $0.05)
+       │ ●
+       │● GPT-4o-mini (70%, $0.005)
+       │
+       │ ● Llama-3-70B (65%, $0.02)
+       │
+       └────────────────────────────── cost per task
+
+  "Pareto front": models not dominated by any other on both axes.
+  Pick based on YOUR quality / cost constraints.
+```
+
+**Production eval + monitoring stack**:
+
+```
+  Dev time:
+    CI runs eval suite on every PR.
+    Block merges that regress.
+
+  Production time:
+    Log every agent run to a trace store.
+    Sample 1-10% for human review.
+    Alert on unusual patterns:
+      - latency spikes
+      - cost explosions
+      - high error rates
+      - unusual tool-call patterns
+
+  Tools:
+    - Langsmith / Arize Phoenix / Braintrust (hosted)
+    - Custom: structured JSON logs + dashboards
+```
+
+**Evaluation pitfalls**:
+
+```
+  1. Test set too small:
+     10 tasks. 1 passes. Success = 10%?
+     No. Confidence interval is huge.
+     Need 50-200 tasks minimum.
+
+  2. Contamination over time:
+     Eval tasks leak into dev. Model "cheats".
+     Rotate or hold out.
+
+  3. Goodhart's Law:
+     Optimize for eval; benchmark stops predicting real quality.
+     Evolve evals quarterly.
+
+  4. Only measuring success:
+     Model is accurate but uses 100× compute.
+     Add cost/steps/time metrics.
+
+  5. LLM-as-judge bias:
+     Judge prefers its own family's answers.
+     Use multiple judges; human spot-check.
+
+  6. Static evals:
+     Your model improves; eval stays the same.
+     Eventually eval stops discriminating.
+     Renew every 6-12 months.
+```
+
+**Integration with CI**:
+
+```yaml
+# .github/workflows/agent-eval.yml
+on: pull_request
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: pip install -r requirements.txt
+      - run: python run_agent_eval.py --output eval_new.json
+      - run: python compare_eval.py eval_new.json main_eval.json
+        # fails PR if success rate drops > 2%
+```
+
+Treats eval like tests. Ships quality.
+
+**Quick eval setup for your own agent**:
+
+```python
+# eval.py
+import json
+from my_agent import run_agent
+
+test_cases = [
+    {"task": "What's 2+2?",                 "expected": "4"},
+    {"task": "Capital of France?",          "expected": "paris"},
+    {"task": "List 3 Python data types",    "expected_any": ["list", "dict", "set"]},
+    # ... 20+ more
+]
+
+def grade(actual, expected=None, expected_any=None):
+    a = actual.lower()
+    if expected:   return expected.lower() in a
+    if expected_any: return any(e in a for e in expected_any)
+    return False
+
+results = []
+for tc in test_cases:
+    trajectory = run_agent(tc["task"])
+    correct = grade(trajectory["final_answer"], **{k:v for k,v in tc.items() if k != "task"})
+    results.append({
+        "task": tc["task"],
+        "correct": correct,
+        "steps": trajectory.get("steps", 0),
+        "cost": trajectory.get("cost", 0),
+    })
+
+success = sum(r["correct"] for r in results) / len(results)
+print(f"Success: {success:.1%}")
+print(f"Avg steps: {sum(r['steps'] for r in results) / len(results):.1f}")
+print(f"Total cost: ${sum(r['cost'] for r in results):.3f}")
+```
+
+Run before any change. Track over time. Improve data-driven.
+
+**When evals are "good enough"**:
+
+```
+  For a personal project / capstone:
+    20+ cases
+    automated grading
+    one run = one page of results
+
+  For a startup:
+    100+ cases per category
+    LLM-as-judge + human sample
+    CI integration
+
+  For enterprise:
+    1000+ cases
+    human evaluation on samples
+    production monitoring + alerting
+    rotating / evolving eval suites
+```
+
 ## Exercises
 
 1. Write an eval for your code-execution agent (Lesson 10.4):
