@@ -125,6 +125,14 @@ Every cell in C is one dot product. An (m,k)×(k,n) matmul is `m × n` dot produ
 
 **Interactive**: http://matrixmultiplication.xyz - paste two matrices, watch them multiply step by step.
 
+**Or try it here:**
+
+```viz
+{"viz": "matmul_animated"}
+```
+
+Click any cell in `C`. The corresponding row of `A` and column of `B` light up. The orange outline traces the dot product element-by-element. Every cell of `C` is one dot product. That's matmul.
+
 **Why GPUs love matmul**:
 
 ```

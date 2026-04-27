@@ -161,6 +161,16 @@ Training minimizes surprise. Every training step, the model becomes *slightly le
 
 **Interactive**: https://www.desmos.com/calculator/dzvxqldizw - play with softmax temperature live.
 
+**Or use the live softmax visualizer right here:**
+
+```viz
+{"viz": "softmax_temperature"}
+```
+
+Slide the temperature from 0.05 to 5.0. Watch the bars go from nearly-deterministic (all mass on the highest logit) to nearly-uniform (all equal). Edit the logits directly. The entropy readout shows how "flat" the distribution is.
+
+This is **literally the temperature slider in ChatGPT**. Same operation.
+
 **3Blue1Brown's chapter on softmax**: https://www.youtube.com/watch?v=eMlx5fFNoYc#t=22m - watch that specific timestamp (22 min) for a beautiful 5-minute explanation.
 
 ## Exercises

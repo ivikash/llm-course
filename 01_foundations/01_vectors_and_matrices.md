@@ -137,6 +137,22 @@ When attention asks "how much does token i care about token j?" it's computing a
 
 **Play with it**: open https://www.geogebra.org/m/kv2zjeet to interactively rotate two vectors and see their dot product change.
 
+**Or play with it right here:**
+
+```viz
+{"viz": "vector_dot_product"}
+```
+
+Drag the red and blue arrows. Watch the dot product go positive (aligned), zero (perpendicular), negative (opposite). This *is* the intuition you need for attention in Module 3.
+
+**3D tensor shapes** (not just scalars, vectors, matrices — the next step up):
+
+```viz
+{"viz": "tensor_shapes"}
+```
+
+Each cube is one scalar. Slide the dimensions. A batch of 4 sequences, each 8 tokens long, with 12 channels per token = 384 scalars. That's exactly the shape of an LLM's input after embedding.
+
 ## Exercises
 
 1. Create a (4, 5) tensor filled with zeros, then fill the 3rd row with 1s. Print its shape.

@@ -119,6 +119,21 @@ The slope (the derivative) at each point tells you which direction is "downhill.
 
 **3Blue1Brown's visual explanation**: https://www.youtube.com/watch?v=IHZwWFHWa-w (15 min) - literally shows a ball rolling down a loss surface. Watch once, remember forever.
 
+**Or watch it live here:**
+
+```viz
+{"viz": "gradient_descent"}
+```
+
+Press **Run**. The ball rolls down the loss curve L(w) = (w-5)². It converges to w=5 (the minimum) — if the learning rate is right.
+
+**Now break it:**
+- Set learning rate to **0.01** (crawls; doesn't reach the minimum).
+- Set learning rate to **1.1** (bounces around, never settles).
+- Set learning rate to **1.2** (explodes to infinity — DIVERGED).
+
+This is the most important hyperparameter in ML. Now you've felt why.
+
 **Learning rate tuning intuition**:
 
 ```
