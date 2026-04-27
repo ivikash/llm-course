@@ -131,6 +131,14 @@ Slow (CPU-GPU transfer is slow) but can train models that otherwise wouldn't fit
 
 ## Visualize this
 
+**DDP vs ZeRO-1/2/3, per-GPU memory:**
+
+```viz
+{"viz": "fsdp_shard"}
+```
+
+Switch strategies. Watch each GPU's memory bar shrink as more gets sharded. DDP = full copy on every GPU (wasteful). ZeRO-1 shards just optimizer state (~half the waste). ZeRO-2 also shards gradients. FSDP/ZeRO-3 shards weights too — lowest per-GPU memory, but most network traffic.
+
 **DDP vs FSDP (ZeRO-3) vs Tensor Parallelism**:
 
 ```

@@ -42,7 +42,17 @@ Two things to note:
 - `@torch.no_grad()`: no gradient tracking during eval. Saves memory.
 - It averages over `eval_iters` batches (default 200) for a stable estimate.
 
-## Perplexity
+## Visualize this
+
+**Loss ⟷ Perplexity ⟷ BPB converter, with model anchors:**
+
+```viz
+{"viz": "perplexity_converter"}
+```
+
+Edit any field; the others update. The ruler below shows your loss against real models (random baseline → bigram → GPT-2 → nanochat → GPT-3 → GPT-4). Lets you immediately answer "is my 2.3 loss good?" (yes — around GPT-2-XL level).
+
+**Perplexity**:
 
 **Perplexity = exp(cross_entropy)**. Just a reparameterization.
 
