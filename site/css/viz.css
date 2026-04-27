@@ -1,0 +1,84 @@
+/* Visualization container styles shared across all viz modules */
+
+.viz {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.viz-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  margin: 0 0 4px;
+}
+.viz-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.viz-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.viz-controls input[type="range"] { width: 140px; }
+.viz-controls input[type="text"] { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+.viz-controls button {
+  padding: 4px 10px;
+  background: #2563eb;
+  color: white;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.viz-controls button:hover { background: #1d4ed8; }
+.viz-controls button:disabled { background: #9ca3af; cursor: default; }
+.viz-readout {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  color: #4b5563;
+  padding: 6px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+.viz svg { display: block; margin: 0 auto; }
+.viz canvas { display: block; margin: 0 auto; max-width: 100%; }
+.viz-error {
+  color: #b91c1c;
+  padding: 8px;
+  background: #fef2f2;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.viz-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.viz-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #ddd6fe;
+  color: #5b21b6;
+  margin-right: 6px;
+}

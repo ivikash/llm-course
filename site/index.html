@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
+<link rel="stylesheet" href="css/viz.css">
 <style>
   :root { --side: 320px; }
   * { box-sizing: border-box; }
@@ -47,6 +48,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/common.min.js"></script>
+<script src="viz/loader.js"></script>
 <script>
 const MODULES = {
   '00_start_here':         'Module 0 — Start Here',
@@ -118,7 +120,22 @@ async function load(path) {
   try {
     const res = await fetch('../' + path);
     if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
-    const text = await res.text();
+    let text = await res.text();
+    // Transform ```viz ... ``` fenced blocks into <div data-viz="..."> placeholders.
+    // Block content is JSON: {"viz":"name", ...props}
+    text = text.replace(/```viz\s*\n([\s\S]*?)\n```/g, (_m, body) => {
+      try {
+        const spec = JSON.parse(body);
+        const name = spec.viz;
+        const attrs = Object.entries(spec)
+          .filter(([k]) => k !== 'viz')
+          .map(([k, v]) => `data-${k}="${String(v).replace(/"/g, '&quot;')}"`)
+          .join(' ');
+        return `<div data-viz="${name}" ${attrs}></div>`;
+      } catch (e) {
+        return `<pre class="viz-error">Invalid viz block: ${e.message}\n${body}</pre>`;
+      }
+    });
     el.innerHTML = marked.parse(text);
     // rewrite relative .md links to hash routes
     el.querySelectorAll('a[href]').forEach(a => {
@@ -133,6 +150,8 @@ async function load(path) {
     document.querySelectorAll('#toc a').forEach(a =>
       a.classList.toggle('active', a.dataset.path === path));
     document.getElementById('content').scrollTop = 0;
+    // mount any interactive visualizations on the page
+    if (window.mountAllViz) await window.mountAllViz(el);
   } catch (e) {
     el.innerHTML = '<h2>Could not load <code>' + path + '</code></h2><p>' + e.message + '</p>';
   }

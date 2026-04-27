@@ -147,44 +147,26 @@ That's the "compare predicted distribution to real next token and measure error"
 
 ## Visualize this
 
-**See it yourself (essential)**:
-- **Tiktokenizer** (https://tiktokenizer.vercel.app/) - paste any text, see how real LLMs split it into tokens. Colored. Takes 10 seconds.
-- **3Blue1Brown: "What is a GPT?"** (https://www.youtube.com/watch?v=wjZofJX0v4M) - 27 minutes, visual walkthrough. Watch after this lesson.
-- **bbycroft.net/llm** (https://bbycroft.net/llm) - 3D animation of a GPT processing tokens. Click through.
+**Try the bigram model live, in your browser**:
 
-**Visualize your bigram model after running it**:
-
-```python
-# after building probs dict in 01_bigram.py, add:
-import matplotlib.pyplot as plt
-import numpy as np
-
-# build a heatmap of char -> char transition probabilities
-chars_list = sorted(probs.keys())
-n = len(chars_list)
-matrix = np.zeros((n, n))
-for i, a in enumerate(chars_list):
-    for j, b in enumerate(chars_list):
-        matrix[i, j] = probs[a].get(b, 0)
-
-plt.figure(figsize=(10, 10))
-plt.imshow(matrix, cmap='hot')
-plt.xticks(range(n), chars_list, rotation=90, fontsize=6)
-plt.yticks(range(n), chars_list, fontsize=6)
-plt.xlabel("next char"); plt.ylabel("current char")
-plt.title("Bigram transition probabilities")
-plt.colorbar()
-plt.tight_layout()
-plt.savefig("bigram_heatmap.png")
+```viz
+{"viz": "bigram_generator"}
 ```
 
-Open `bigram_heatmap.png`. **Bright cells = "this letter usually follows this one."** You'll see:
-- A bright column at the space " " and newline positions (everything gets followed by them).
-- "q" almost always followed by "u".
-- Vowels have broad rows (many things follow them).
-- Capital letters mostly follow newlines.
+Type any seed character, slide the temperature, press Generate. **This is literally the model from this lesson, running in JavaScript.** Temperature low → repetitive ("the the the"). Temperature high → chaotic. Around 1.0 → Shakespeare-flavored gibberish.
 
-You've seen the language model's "knowledge" as a picture.
+**And here's what the model actually learned** — its transition probability table as a heatmap:
+
+```viz
+{"viz": "bigram_heatmap"}
+```
+
+Hover any cell. You'll see: `q` is almost always followed by `u`. Vowels have broad rows (many things follow them). Punctuation almost always precedes a space or newline. **You're seeing the model's knowledge as a picture.**
+
+**Other resources**:
+- **Tiktokenizer** (https://tiktokenizer.vercel.app/) - paste any text, see how real LLMs split it into tokens.
+- **3Blue1Brown: "What is a GPT?"** (https://www.youtube.com/watch?v=wjZofJX0v4M) - 27-minute visual walkthrough.
+- **bbycroft.net/llm** (https://bbycroft.net/llm) - 3D animation of a GPT processing tokens.
 
 ## The punchline
 
