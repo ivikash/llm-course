@@ -4,6 +4,16 @@ CLIP (Contrastive Language-Image Pre-training) is OpenAI's 2021 model that learn
 
 Understanding CLIP = understanding the vocabulary of modern vision-language systems.
 
+## Visualize this
+
+**CLIP's contrastive training, live:**
+
+```viz
+{"viz": "clip_similarity"}
+```
+
+7 images, 7 captions. The similarity matrix should become diagonal-heavy after training. Press **▶ Train**: watch the diagonal brighten as InfoNCE loss shapes the embedding space. That growing green gap between diagonal and off-diagonal IS what CLIP optimizes.
+
 ## The core idea
 
 Train two encoders jointly:

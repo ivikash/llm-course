@@ -229,6 +229,14 @@ asyncio.run(run_task("Go to news.ycombinator.com and tell me the top 3 stories."
 
 ## Visualize this
 
+**Watch an agent use a browser, live (simulated):**
+
+```viz
+{"viz": "browser_agent"}
+```
+
+Press **▶ Run agent**. The agent's task: "Find the top story on Hacker News and tell me its score." Watch thoughts stream on the right while the fake browser navigates on the left. 4 tool calls: navigate → get_content → click → final answer. This is what Cursor / Claude Computer Use / OpenAI Operator feel like.
+
 **Two ways agents "see" web pages**:
 
 ```
