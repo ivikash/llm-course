@@ -103,6 +103,14 @@ fp8 is cutting-edge - expect libraries (Transformer Engine, TorchAO) to take it 
 
 ## Inference: int8 / int4 quantization
 
+**Watch quantization degrade a weight matrix across precisions:**
+
+```viz
+{"viz": "quantization"}
+```
+
+Switch from FP32 down to 1-bit. Left is original, middle is quantized, right is the error. Below ~4 bits the error explodes. For a 70B model: fp16 = 140 GB, int4 = 35 GB (fits single H100), 1-bit = 9 GB (fits RTX 4090).
+
 Post-training, you can quantize weights to int8 or int4 for deployment. Different technique:
 - Model runs in fp16 or bf16 activations.
 - Weights live as int4, dequantized on-the-fly before each matmul.

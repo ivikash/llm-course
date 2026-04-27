@@ -20,6 +20,15 @@ Quick memorize: training FLOPs ≈ 6 × N × D. Good enough for planning.
 
 ## Inference cost
 
+**Calculate throughput + latency for your deployment:**
+
+```viz
+{"viz": "throughput_calc"}
+```
+
+Pick GPU, model size, batch, precision, context. See: memory fit, decode ms/token, prefill latency, and whether you're memory-bound. The single most useful calculator when sizing production LLM serving.
+
+
 The harder cost. Depends on:
 - Model size (bigger = slower per token).
 - Context length (KV cache memory).

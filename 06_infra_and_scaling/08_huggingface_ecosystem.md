@@ -80,6 +80,13 @@ Fine-tuning a 7B model from scratch takes 7B × 16 bytes = 112 GB VRAM. LoRA fin
 
 **LoRA** (Low-Rank Adaptation): freeze the base model, train small "adapter" matrices that add corrections.
 
+```viz
+{"viz": "lora_adapter"}
+```
+
+Slide d (matrix size) and r (adapter rank) — watch the adapter shrink to a fraction of full params. For a 1024×1024 weight at rank 8: 16K params vs 1M full → **64× reduction**. Adapter is only a few MB, swappable per task.
+
+
 ```python
 from peft import LoraConfig, get_peft_model
 
