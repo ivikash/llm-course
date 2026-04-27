@@ -161,6 +161,14 @@ Same pattern. Look at `scripts/base_train.py` around the init section. It has a 
 
 ## Visualize this
 
+**Watch an 8-GPU DDP step happen:**
+
+```viz
+{"viz": "ddp_allreduce"}
+```
+
+Press **▶ Play one step**. 4 phases: (1) each GPU runs forward on its batch, (2) each GPU computes gradients locally, (3) all-reduce — gradients sum across GPUs via NCCL ring, (4) every GPU runs the same optimizer step. Weights stay in sync. This is what `torchrun --nproc_per_node=8` orchestrates for you every step.
+
 **DDP: each GPU gets a full model copy**:
 
 ```

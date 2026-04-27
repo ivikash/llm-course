@@ -105,7 +105,15 @@ During SFT (Module 5), the tokenizer formats conversations using these tokens. T
 
 ## Visualize this
 
-**BPE training, step by step**:
+**Watch BPE build its vocabulary step by step:**
+
+```viz
+{"viz": "bpe_trainer"}
+```
+
+Start with one-char-per-token. Press **Next merge** or **Auto-run**. Each step finds the most frequent pair and merges them into a new token. Watch common patterns like "lo", "low", "est", "newest" emerge as merge by merge. This is literally the algorithm tiktoken and nanochat's tokenizer use — just on 2B characters instead of 20.
+
+**The BPE algorithm, precisely**:
 
 ```
   Iteration 0:
