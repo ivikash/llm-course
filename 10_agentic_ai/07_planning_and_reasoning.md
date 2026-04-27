@@ -257,6 +257,241 @@ Use reasoning when the task is hard AND correctness matters AND latency is toler
 - **DeepSeek R1** (2025): https://arxiv.org/abs/2501.12948
 - **OpenAI o1 system card**
 
+## Visualize this
+
+**Reasoning techniques on a complexity ladder**:
+
+```
+                   complexity/cost
+                         │
+   tree search RL       ▲
+   (AlphaGo, o1/R1)    │
+                       │
+   tree of thoughts    ▲
+                       │
+   self-consistency    ▲
+   (sample N, vote)    │
+                       │
+   reflexion            ▲
+   (self-critique)     │
+                       │
+   ReAct               ▲
+   (reason + act)      │
+                       │
+   CoT                 ▲
+   (think step-by-step)│
+                       │
+   direct               ● (no reasoning; just answer)
+                       │
+                       └────► compute per query
+
+  Higher up: better accuracy on hard problems, more expensive.
+  Pick the lowest on this ladder that solves your problem.
+```
+
+**CoT in action**:
+
+```
+  Without CoT:
+  Q: If I have 5 apples and give 2 to Alice and 1 to Bob, then buy 4 more,
+     how many do I have?
+  A: 6 (correct by luck maybe)
+
+  With CoT:
+  Q: If I have 5 apples and give 2 to Alice and 1 to Bob, then buy 4 more,
+     how many do I have?
+     Let's think step by step.
+  A: I start with 5. Give 2 to Alice: 5-2 = 3. Give 1 to Bob: 3-1 = 2.
+     Buy 4 more: 2+4 = 6. So I have 6 apples.
+  → Correct, and explainable.
+
+  GSM8K accuracy jump:
+  Direct:    ~20%
+  With CoT:  ~60%
+  With CoT + larger model: ~90%+
+```
+
+**ReAct: reason AND act**:
+
+```
+  Question: "What's the population of the capital of France?"
+
+  Thought: I need to find the capital of France first.
+  Action:  search_web(query="capital of France")
+  Observation: "Paris is the capital of France."
+  Thought: Now I need the population of Paris.
+  Action:  search_web(query="population of Paris")
+  Observation: "Paris has a population of about 2.1 million."
+  Thought: I have the answer.
+  Final Answer: The capital of France is Paris, with a population of about 2.1 million.
+
+  The LLM interleaves:
+    - Thinking about what to do next
+    - Taking actions
+    - Processing observations
+
+  Standard agent pattern.
+```
+
+**Self-consistency**:
+
+```
+  Instead of sampling 1 CoT, sample N.
+  Take the majority answer.
+
+  Question: "What's 237 * 491?"
+
+  Sample 1: "237 * 491 = 237 * 500 - 237 * 9 = 118500 - 2133 = 116367"  → 116367
+  Sample 2: "237 * 491 ≈ 240 * 490 = 117600, adjust by ... = 116367"    → 116367
+  Sample 3: "237 × 491 ... (mistake) ... = 116377"                       → 116377
+  Sample 4: "237 * 491 = 237 * 500 - 2133 = 116367"                      → 116367
+  Sample 5: "237 * 491 = ..."                                             → 116367
+
+  Majority: 116367  (4 out of 5)
+
+  Cost: 5× more compute than 1 sample.
+  Gains: 10-15 percentage points on hard math.
+```
+
+**Reflexion (learn from failure)**:
+
+```
+  Attempt 1:
+    Task: "Write Python function to check if a number is prime."
+    Code: def is_prime(n): return n > 1 and all(n % i for i in range(2, n))
+    Test: is_prime(2) → True (correct)
+          is_prime(4) → False (correct)
+          is_prime(9) → True (WRONG)
+    Verdict: failed.
+
+  Reflexion (self-critique):
+    "My function returns True for 9, which is wrong because 9 = 3 × 3.
+     The range should not include 0 or 1 in division, but I do check n > 1.
+     Wait, range(2, 9) = [2,3,4,5,6,7,8] and 9%3=0, so the all() should be False.
+     Let me recheck... oh, 9 % 2 = 1 (truthy), 9 % 3 = 0 (falsy). So all() = False.
+     Return should be False. But my test says True. Bug must be elsewhere.
+     ...let me rewrite: `all(n % i for i in range(2, int(n**0.5)+1))`"
+
+  Attempt 2: use the corrected version.
+    Test: is_prime(9) → False (correct now).
+
+  Key: error signal fed back into reasoning → iterative improvement.
+```
+
+**o1/R1-style reasoning (the 2024-25 unlock)**:
+
+```
+  Old models:
+    Input: problem
+    Output: answer (maybe wrong)
+    Compute: fixed per query.
+
+  Reasoning models (o1, o3, DeepSeek-R1):
+    Input: problem
+    Output: LONG reasoning trace + answer
+    Compute: SCALES with problem difficulty
+
+  Example:
+    User: "Solve: find x in x^3 - 6x^2 + 11x - 6 = 0"
+
+    Model's internal reasoning (thousands of tokens!):
+      "Let me try to factor...
+       Rational root theorem: possible roots are ±1, ±2, ±3, ±6.
+       Test x=1: 1-6+11-6 = 0. ✓ So (x-1) is a factor.
+       Dividing: x^3 - 6x^2 + 11x - 6 = (x-1)(x^2 - 5x + 6)
+       Factor quadratic: x^2 - 5x + 6 = (x-2)(x-3)
+       So x = 1, 2, 3.
+       Wait, let me verify: (1-1)(1-2)(1-3) = 0*-1*-2 = 0. ✓
+       (2-1)(2-2)(2-3) = 1*0*-1 = 0. ✓
+       (3-1)(3-2)(3-3) = 2*1*0 = 0. ✓"
+
+    Final answer: x = 1, 2, 3.
+
+  The "thinking" is internal. User sees only the final answer.
+  Cost: 50-500× more tokens than a non-reasoning model. Worth it for hard problems.
+```
+
+**How R1 is trained (from the paper)**:
+
+```
+  1. Start with a base LLM (like DeepSeek-V3).
+  2. For a problem with a verifiable answer (math, code):
+       - Sample K=16 responses
+       - Score each 0/1 (correct?)
+       - Policy gradient: reward correct, penalize wrong
+  3. Model learns: "longer reasoning → higher accuracy"
+  4. Emergent behavior: spontaneous self-reflection, backtracking.
+
+  Key insight: no explicit supervision for CoT format.
+  The model learns to think step-by-step because it leads to rewards.
+
+  GRPO (Group Relative Policy Optimization):
+    Advantage = (reward - group_mean) / group_std
+    Updates policy based on relative performance within a batch.
+    Simple, effective.
+```
+
+**Planner-executor pattern**:
+
+```
+  User: "Research the latest open-source LLMs and build a comparison table."
+
+  ┌─────────────────────────────┐
+  │   Planner (big smart LLM)    │  (once, up front)
+  │   Makes a plan:               │
+  │   1. search for open LLMs     │
+  │   2. fetch Hugging Face pages  │
+  │   3. extract specs             │
+  │   4. format as table           │
+  └────────────┬─────────────────┘
+               │
+               ▼
+  ┌─────────────────────────────┐
+  │   Executor (cheaper LLM)      │  (for each step)
+  │   executes the plan            │
+  │   step by step                 │
+  └─────────────────────────────┘
+
+  Advantages:
+  - Smart model for planning (complex reasoning)
+  - Cheap model for execution (just follow orders)
+  - Clear separation of concerns
+```
+
+**When to add reasoning (cost-benefit)**:
+
+```
+  Task type              Reasoning worth it?
+  ─────────────────────  ──────────────────────
+  Chat, chitchat          No (overkill, slow)
+  Simple retrieval         No
+  Classification           No
+  Math, logic              YES (dramatic gains)
+  Code with tests          YES (retry loop shines)
+  Multi-step planning       YES (agent with reflection)
+  Research                 MAYBE (depends on breadth)
+
+  Rule: if your eval shows > 10% gain with CoT,
+        consider reasoning models.
+        Otherwise, regular models are cheaper.
+```
+
+**Reasoning cost comparison (2026 prices)**:
+
+```
+                              Cost per 1K tokens
+  ────────────────────────    ─────────────────────
+  GPT-4o (non-reasoning)       $10 input, $30 output
+  GPT-4o-mini                  $0.60 input, $2.40 output
+  o1 (reasoning)               $60 input, $240 output (!!)
+  o1-mini                      $12 input, $48 output
+  Claude 3.7 Sonnet thinking   $15 input, $75 output
+  DeepSeek-R1 (open)            $1 input, $2 output (10-100× cheaper)
+
+  Reasoning costs 5-10× more than regular generation.
+  Per query cost can be $0.50-$5 for complex problems.
+```
+
 ## Exercises
 
 1. Take a hard problem (GSM8K-style). Solve it with a vanilla LLM. Then with "think step by step". Then with self-consistency (5 samples). Compare accuracy.

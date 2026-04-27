@@ -227,6 +227,229 @@ asyncio.run(run_task("Go to news.ycombinator.com and tell me the top 3 stories."
 
 ~60 lines. Works on simple sites. Fragile on complex.
 
+## Visualize this
+
+**Two ways agents "see" web pages**:
+
+```
+  Approach A: DOM-based
+  ─────────────────────
+  ┌────────────────────┐
+  │ <html>              │
+  │  <div id="main">    │ → feed HTML to LLM
+  │   <button>Click me  │ → LLM picks element by CSS selector
+  │   </button>         │ → code.click("#main > button")
+  │  </div>             │
+  │ </html>              │
+  └────────────────────┘
+  Pros: deterministic, compact, programmable
+  Cons: modern SPAs have ugly DOM, dynamic content
+
+  Approach B: Vision-based
+  ────────────────────────
+  ┌────────────────────┐
+  │  [screenshot]       │
+  │  ┌──────────┐       │
+  │  │  Button   │       │ → vision LLM sees pixels
+  │  │  [Click]  │       │ → outputs: click at (320, 450)
+  │  └──────────┘       │
+  │                      │
+  └────────────────────┘
+  Pros: works on any UI (desktop apps, games, captchas*)
+  Cons: slow, needs multimodal LLM, coordinates fragile
+  (*well, not CAPTCHAs - those are deliberately hard)
+```
+
+**The agent loop for browsing**:
+
+```
+  User: "Find the top post on Hacker News."
+       │
+       ▼
+  LLM: calls navigate("news.ycombinator.com")
+       │
+       ▼
+  Browser: loads page.
+  Agent harness: extracts DOM or screenshot.
+       │
+       ▼
+  LLM sees: "Hacker News - list of 30 posts - top: 'X announces Y'"
+       │
+       ▼
+  LLM: "I can read the top post from the page text."
+       │
+       ▼
+  Final answer: "The top post is 'X announces Y'."
+
+  More complex: click through to the article, extract comments, etc.
+```
+
+**Tools for web agents**:
+
+```
+  Python libraries:
+    - Playwright: modern, async, handles SPAs well.
+    - Selenium:   older, still widely used.
+    - Puppeteer:  JavaScript (Chrome automation).
+    - browser-use (LLM-friendly wrapper around Playwright).
+
+  LLM-orchestration frameworks:
+    - LangChain browser tools
+    - AutoGPT / BabyAGI (early, now superseded)
+
+  Commercial:
+    - OpenAI Operator (launched Jan 2025, ChatGPT Pro feature)
+    - Anthropic Computer Use (Claude controls a VM)
+    - Google Project Mariner (Chrome-integrated)
+    - Adept ACT-1 (pioneer, absorbed by Amazon)
+```
+
+**Browser agent failure modes**:
+
+```
+  1. Dynamic content:
+     Page loads → JavaScript fires → content appears 2 sec later.
+     Agent clicks too early. Solution: wait for selector.
+
+  2. CAPTCHAs:
+     "Prove you're human."
+     Agent: can't.
+     (Deliberately adversarial. Arms race.)
+
+  3. Cookie popups, modals, banners:
+     Every site has them. Agent must dismiss first.
+
+  4. Authentication:
+     Multi-step forms with 2FA, passkeys, SSO.
+     Agent confused, UI shifts.
+
+  5. Rate limits / bot detection:
+     Cloudflare, Datadome recognize automated traffic.
+     Ban IP. Agent blocked.
+
+  6. Complex layouts:
+     Responsive design shifts elements based on viewport.
+     Coordinate-based vision fails.
+
+  7. Multi-tab / multi-window:
+     Agent loses track of state.
+
+  8. Long-horizon tasks:
+     "Book me a flight + hotel + car."
+     Agent gets 3/5 steps right, fumbles the rest.
+```
+
+**WebArena benchmark results**:
+
+```
+  Task: realistic web tasks on 5 types of sites.
+  Examples: "Find all unread emails from X", "Book the cheapest flight".
+
+  Model                   Success rate
+  ─────────────────────   ────────────
+  Random baseline          0%
+  GPT-4 (2023)             15%
+  GPT-4o (2024)            ~35%
+  Claude 3.5 Sonnet (2024) ~40%
+  Specialized agents (2025) ~55%
+  Humans                   ~78%
+
+  We're approaching human-level on many browsing tasks.
+  But long-horizon complex tasks remain hard.
+```
+
+**When web agents ARE ready**:
+
+```
+  ✓ Well-structured sites (news, docs, Wikipedia)
+  ✓ Simple actions (read, fill form, click button)
+  ✓ Single-flow tasks (not 10-step booking)
+  ✓ Internal tools you control
+
+  Everyday uses today:
+    - "Research this topic" (news aggregation)
+    - "Look up this product's specs"
+    - "Check government data" (forms, databases)
+```
+
+**When they're NOT ready**:
+
+```
+  ✗ Financial transactions (risk of errors with $)
+  ✗ Sensitive account access (security risk)
+  ✗ Complex multi-site workflows
+  ✗ Sites that actively block bots
+  ✗ Anything requiring good judgment about sites you can't trust
+
+  Rule: human-in-the-loop for anything high-stakes.
+```
+
+**Minimal browser agent** (runs locally):
+
+```python
+from playwright.async_api import async_playwright
+from openai import OpenAI
+import json, asyncio
+
+client = OpenAI()
+
+async def run_task(task):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+
+        tools = [
+            {"type":"function","function":{
+                "name":"navigate","description":"Go to URL.",
+                "parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}},
+            {"type":"function","function":{
+                "name":"click","description":"Click by CSS selector.",
+                "parameters":{"type":"object","properties":{"selector":{"type":"string"}},"required":["selector"]}}},
+            {"type":"function","function":{
+                "name":"type_text","description":"Type into input.",
+                "parameters":{"type":"object","properties":{"selector":{"type":"string"},"text":{"type":"string"}},"required":["selector","text"]}}},
+            {"type":"function","function":{
+                "name":"get_content","description":"Get visible text of current page.",
+                "parameters":{"type":"object","properties":{}}}},
+        ]
+
+        messages = [
+            {"role":"system","content":"Browser agent. Complete the task via tools."},
+            {"role":"user","content":task},
+        ]
+
+        for _ in range(15):
+            r = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="gpt-4o", messages=messages, tools=tools,
+            )
+            m = r.choices[0].message
+            messages.append(m.model_dump())
+            if not m.tool_calls:
+                print("Final:", m.content); break
+            for tc in m.tool_calls:
+                args = json.loads(tc.function.arguments)
+                try:
+                    name = tc.function.name
+                    if name == "navigate":
+                        await page.goto(args["url"]); out = "At " + args["url"]
+                    elif name == "click":
+                        await page.click(args["selector"]); out = "Clicked"
+                    elif name == "type_text":
+                        await page.fill(args["selector"], args["text"]); out = "Typed"
+                    elif name == "get_content":
+                        out = (await page.inner_text("body"))[:3000]
+                except Exception as e:
+                    out = f"Error: {e}"
+                messages.append({"role":"tool","tool_call_id":tc.id,"content":out})
+
+        await browser.close()
+
+asyncio.run(run_task("Go to news.ycombinator.com, tell me the top 3 story titles."))
+```
+
+~60 lines. Fragile, but works on simple sites.
+
 ## Exercises
 
 1. Run the snippet above. Try different tasks: Wikipedia lookups, Google searches, weather checks.

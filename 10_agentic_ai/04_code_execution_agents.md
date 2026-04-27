@@ -260,6 +260,321 @@ Benchmarks:
 
 Every one uses the same core pattern. Differentiation is in UX, sandbox quality, and reliability.
 
+## Visualize this
+
+**The code-execution agent loop**:
+
+```
+  User: "Analyze sales.csv and find the top-growing product."
+       │
+       ▼
+  ┌─────────────────────────────────┐
+  │     LLM reasoning                 │
+  │ "I need to load the CSV,          │
+  │  compute growth, return answer."  │
+  └──────────┬──────────────────────┘
+             ▼
+  ┌─────────────────────────────────┐
+  │ LLM writes code:                  │
+  │   df = pd.read_csv('sales.csv')   │
+  │   q3 = df[df['quarter']=='Q3']... │
+  │   growth = ...                    │
+  │   print(growth.idxmax())          │
+  └──────────┬──────────────────────┘
+             ▼
+  ┌─────────────────────────────────┐
+  │    Sandbox executes                │
+  │    → STDOUT: "Product X"          │
+  │    → STDERR: (none)               │
+  └──────────┬──────────────────────┘
+             ▼
+  ┌─────────────────────────────────┐
+  │ LLM reads result, writes answer:  │
+  │ "Product X had the largest Q3      │
+  │  growth, at 142%."                │
+  └──────────┬──────────────────────┘
+             ▼
+  Final answer to user.
+
+  Loop if: LLM wants more data (e.g., "also make a chart").
+```
+
+**Sandbox security levels**:
+
+```
+  Level 1: subprocess (you own the machine)
+  ──────────────────────────────────────
+    subprocess.run(["python", "-c", code], timeout=30)
+
+    Risk: code can touch filesystem, send HTTP, read env vars.
+    Use for: your own trusted development. NOT public.
+
+  Level 2: Docker container
+  ──────────────────────────
+    docker run --rm --network=none --memory=512m \
+        python:3.11 python -c "$CODE"
+
+    --rm: cleans up
+    --network=none: blocks internet
+    --memory=512m: caps RAM
+    Risk: container escapes (rare but real)
+    Use for: semi-trusted internal tools.
+
+  Level 3: gVisor / Firecracker (proper isolation)
+  ──────────────────────────────
+    gVisor: intercepts syscalls, kernel-level protection.
+    Firecracker: tiny VMs that boot in 125ms.
+    Use for: public-facing products.
+
+  Level 4: hosted sandbox services
+  ────────────────────────────────
+    E2B (e2b.dev): SDK for agent-friendly sandboxes.
+    Modal (modal.com): serverless Python with fast cold start.
+    Daytona: dev environments as a service.
+    Replit: educational + agents.
+
+    Use for: production. They've solved the security you haven't.
+```
+
+**State preservation across code calls**:
+
+```
+  Naive (subprocess): state DOESN'T persist.
+  Step 1: `df = pd.read_csv('data.csv')`  → runs, df exists in subprocess
+  (subprocess ends)
+  Step 2: `df.head()`  → NameError: 'df' not defined
+
+  Solution: Jupyter kernel per session.
+  Kernel stays alive across calls.
+  `df` persists.
+
+  ┌───────────────────────────┐
+  │   Persistent IPython kernel│
+  │   (one per user session)    │
+  │                             │
+  │   Executes code             │
+  │   Keeps variables            │
+  │   Returns stdout/err         │
+  └───────────────────────────┘
+
+  Tools: jupyter-kernel-gateway, or hosted services.
+```
+
+**Agent retries on errors**:
+
+```
+  Agent writes code:
+    print(undefined_variable)
+       │
+       ▼
+  Sandbox:
+    STDOUT: (empty)
+    STDERR: NameError: name 'undefined_variable' is not defined
+
+  Agent sees error.
+  Agent writes NEW code:
+    print("Hello world")   (corrects mistake)
+       │
+       ▼
+  Sandbox:
+    STDOUT: Hello world
+
+  Agent reports: "Result: Hello world"
+
+  → Iteration from error → fix is powerful. Enabled by error-as-observation.
+```
+
+**What code-execution agents can do**:
+
+```
+  Data analysis:
+    "Load this CSV. Show me the correlation matrix."
+    → pandas + seaborn, produces chart, explains findings.
+
+  Math:
+    "What's 23498 * 8722 - (234^5)?"
+    → Python computes exactly. LLMs are terrible at arithmetic;
+      Python isn't.
+
+  Web/API:
+    "Get the current BTC price."
+    → requests.get('...'), parses JSON, returns number.
+
+  Code generation + testing:
+    "Write a function that checks if a string is a palindrome."
+    → generates, writes tests, runs them, iterates until pass.
+
+  Simulations:
+    "Simulate a random walk for 1000 steps."
+    → numpy + matplotlib, shows plot.
+
+  Agent chaining:
+    Agent writes code → code calls another agent → chain complete.
+```
+
+**Plotting in agents** (handling image output):
+
+```
+  LLM writes code:
+    import matplotlib.pyplot as plt
+    plt.plot(data)
+    plt.savefig('/tmp/plot.png')
+
+  Sandbox executes. File appears.
+
+  Your agent harness:
+    1. After exec, check /tmp for new files.
+    2. Read them. Send to user interface.
+    3. Optionally: include file_path in LLM context so it can reference.
+
+  Result: agent-generated charts appear inline in the chat UI.
+```
+
+**File I/O for agents**:
+
+```
+  Working directory:
+  /tmp/agent_workdir/
+  ├── data/
+  │   ├── sales.csv        (user-uploaded)
+  │   └── users.db
+  ├── figs/                 (LLM-generated)
+  │   └── growth_chart.png
+  ├── models/
+  │   └── trained_model.pt
+  └── scripts/
+      └── analysis.py
+
+  Agent prompted:
+    "Files are in /tmp/agent_workdir. Generate outputs in figs/ or models/."
+
+  LLM accesses via Python.
+  After exec, your harness surfaces new files.
+```
+
+**Preinstalled library list (what comes "for free")**:
+
+```
+  Minimum for a useful data analyst agent:
+    - pandas, numpy, scipy    → tabular + numerical
+    - matplotlib, seaborn, plotly → visualization
+    - sklearn                  → ML
+    - requests, urllib          → HTTP
+    - json, csv, yaml           → parsing
+    - openai, anthropic         → if agent calls LLMs
+
+  Nice-to-have:
+    - beautifulsoup4            → web scraping
+    - Pillow                    → image manipulation
+    - sympy                     → symbolic math
+
+  Avoid:
+    - Anything network-heavy if sandbox is restricted
+    - Heavy ML (pytorch, tensorflow) - install on demand
+```
+
+**Commercial code-execution agents in 2026**:
+
+```
+  Consumer-facing:
+    OpenAI Code Interpreter    (in ChatGPT Plus)
+    Claude Analysis Tool        (in Claude Pro)
+    Perplexity Labs             (research mode)
+
+  Developer tools:
+    Cursor                      (AI code editor)
+    Claude Code                 (Anthropic CLI)
+    Aider                       (open-source CLI)
+    Continue.dev                (VS Code extension)
+    Windsurf                    (AI editor)
+
+  Autonomous:
+    Devin (Cognition)           (the pioneer)
+    Replit Agent                (full-stack apps)
+    GitHub Copilot Workspace    (PR-level)
+    Bolt.new, v0.dev            (UI generation)
+
+  Each is the same core pattern: LLM + Python sandbox + loop.
+```
+
+**Benchmark performance**:
+
+```
+  HumanEval (pass@1):
+    GPT-2            0% (untrained for code)
+    Llama-2 7B        12%
+    Llama-3 70B       81%
+    GPT-4o            91%
+    o1-preview        93%
+    Claude 3.5 Sonnet 93%
+
+  SWE-Bench (real GitHub issues, verified subset):
+    GPT-4              ~20%
+    Claude 3.5 Sonnet  ~49%
+    o1-preview         ~41%
+    Devin (2024)       ~14% (initially, now better)
+    Amazon Q Developer ~47%
+
+  Note: SWE-Bench is much harder than HumanEval.
+  Tests real multi-file edits in real repos.
+```
+
+**Minimum viable data analyst agent** (~70 lines, runs now):
+
+```python
+import json, subprocess, os
+from openai import OpenAI
+
+client = OpenAI()
+os.makedirs("/tmp/agent_workdir", exist_ok=True)
+
+def execute(code):
+    # IMPORTANT: in production, sandbox this!
+    r = subprocess.run(
+        ["python", "-c", code],
+        capture_output=True, text=True, timeout=30,
+        cwd="/tmp/agent_workdir",
+    )
+    return f"STDOUT:\n{r.stdout[:3000]}\nSTDERR:\n{r.stderr[:1000]}"
+
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "execute_python",
+        "description": "Run Python. Files accessible in /tmp/agent_workdir.",
+        "parameters": {
+            "type": "object",
+            "properties": {"code": {"type": "string"}},
+            "required": ["code"],
+        },
+    }
+}]
+
+messages = [
+    {"role": "system",
+     "content": "You are a data analyst. User's data is in /tmp/agent_workdir."},
+    {"role": "user",
+     "content": "Download Iris dataset and show me species mean petal length."},
+]
+
+for _ in range(10):
+    r = client.chat.completions.create(
+        model="gpt-4o-mini", messages=messages, tools=tools,
+    )
+    msg = r.choices[0].message
+    messages.append(msg.model_dump())
+    if not msg.tool_calls:
+        print(msg.content)
+        break
+    for tc in msg.tool_calls:
+        out = execute(json.loads(tc.function.arguments)["code"])
+        messages.append({
+            "role": "tool", "tool_call_id": tc.id, "content": out
+        })
+```
+
+Runs. Downloads Iris. Analyzes. Answers. Less than 100 lines.
+
 ## Exercises
 
 1. Build the minimal data analyst agent above. Give it a CSV from Kaggle. Try various questions.

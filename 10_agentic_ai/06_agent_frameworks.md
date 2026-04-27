@@ -151,6 +151,231 @@ Add features as needed:
 - Max tool calls per step.
 - Context compression.
 
+## Visualize this
+
+**Framework complexity vs control**:
+
+```
+  Hand-rolled           Tiny framework        Full framework
+  (30 lines)            (LangChain lite)      (LangChain / AutoGen)
+                                                 
+  Full control           Some abstraction       Maximum features
+  Easy to debug           Slightly faster         Harder to debug
+  Fits in your head       Fits mostly             Big API surface
+  You code everything     Provides common          Pre-built for many
+                           patterns                 use cases
+
+  Use for:                Use for:                 Use for:
+  learning                small projects           complex multi-agent
+  simple agents           rapid prototyping        enterprise apps
+  production              well-understood patterns  when you need breadth
+```
+
+**Framework choice matrix**:
+
+```
+  Your need                    Recommended
+  ────────────────────────     ──────────────────────
+  Learning agents               hand-rolled (know the pattern)
+  Simple RAG + chat              LlamaIndex or hand-rolled
+  Complex RAG                    LlamaIndex
+  Multi-agent collaboration      AutoGen or CrewAI
+  Integrate many LLMs + tools    LangChain (widest support)
+  Optimize prompts               DSPy
+  Stateful persistent agents     Letta (ex-MemGPT)
+  Managed infra                  OpenAI Assistants API
+  Cross-provider tools           MCP server
+```
+
+**Decision flowchart**:
+
+```
+  "Should I use a framework?"
+        │
+        ▼
+  How many tools?
+        │
+        ├── 1-5 ──▶  Hand-roll (30-50 lines)
+        │
+        ├── 5-20 ──▶ LangChain OR hand-rolled with routing
+        │
+        └── 20+ ──▶  LangChain + custom routing
+
+  Is this RAG-heavy?
+        │
+        ├── Yes ──▶  LlamaIndex
+        │
+        └── No ──▶   (use above choice)
+
+  Multi-agent?
+        │
+        ├── Yes ──▶  AutoGen or CrewAI
+        │
+        └── No ──▶   Single-agent (above)
+```
+
+**Pros and cons at a glance**:
+
+```
+  LangChain (2022+)
+  ─────────────────
+  ✓ Most integrations (LLMs, vector DBs, tools)
+  ✓ Large community, lots of tutorials
+  ✗ Heavy abstractions, docs churn
+  ✗ Debugging is painful (stack traces through abstractions)
+  Best for: rapid prototyping, integrations.
+
+  LlamaIndex (2022+)
+  ──────────────────
+  ✓ RAG-focused, best-in-class chunking/querying
+  ✓ Good data connectors
+  ✗ Less versatile for general agents
+  Best for: knowledge-base chat, RAG pipelines.
+
+  AutoGen (Microsoft, 2023)
+  ──────────────────────────
+  ✓ First-class multi-agent conversation
+  ✓ Human-in-the-loop support
+  ✗ Complex for single-agent
+  ✗ Python-only
+  Best for: researcher-critic, planner-executor patterns.
+
+  CrewAI (2024)
+  ──────────────
+  ✓ Role-based agents (researcher, writer, reviewer)
+  ✓ Clean API
+  ✗ Newer, production reliability iffy
+  Best for: prototyping multi-role workflows.
+
+  DSPy (Stanford, 2023)
+  ──────────────────────
+  ✓ Declarative: "here's what I want; compile the prompts"
+  ✓ Automatic prompt optimization given eval data
+  ✗ Steep learning curve
+  Best for: research; when you have eval data and want to optimize.
+
+  Letta / MemGPT (2023)
+  ──────────────────────
+  ✓ Persistent memory primitives
+  ✓ Agents with long-term state
+  ✗ Niche
+  Best for: personal assistants with memory.
+
+  OpenAI Assistants API
+  ─────────────────────
+  ✓ Managed: file search, code interpreter, threads
+  ✓ Minimal code
+  ✗ Vendor lock-in (OpenAI only)
+  ✗ Opaque (can't see internal prompts)
+  Best for: quick prototypes with OpenAI.
+
+  MCP (Anthropic, 2024)
+  ──────────────────────
+  ✓ Cross-provider tool standard
+  ✓ Reusable tool servers
+  ○ Still emerging
+  Best for: tool authors; future-proof setup.
+```
+
+**Same agent, 3 different frameworks** (compare verbosity):
+
+```
+  Task: "Given a math question, compute via calculator tool."
+
+  Hand-rolled (30 lines):
+  ────────────────────────
+  def calculator(expr): return eval(expr, {}, {})
+  tools = [{...schema...}]
+  messages = [{"role":"user","content":"..."}]
+  while True:
+      r = client.chat.completions.create(...)
+      if not r.choices[0].message.tool_calls: break
+      for tc in ...: messages.append({"role":"tool",...})
+
+  LangChain (~10 lines but hidden complexity):
+  ─────────────────────────────────────────────
+  from langchain.agents import initialize_agent, Tool
+  from langchain_openai import ChatOpenAI
+  tools = [Tool(name="calc", func=calculator, description="...")]
+  agent = initialize_agent(tools, ChatOpenAI(model="gpt-4o"),
+                             agent=AgentType.OPENAI_FUNCTIONS)
+  print(agent.run("What is 237 * 491?"))
+
+  DSPy (declarative):
+  ───────────────────
+  import dspy
+  class Calc(dspy.Signature):
+      "Compute math expressions"
+      question: str = dspy.InputField()
+      answer: str = dspy.OutputField()
+  # DSPy compiles the prompt from examples
+```
+
+Each has tradeoffs. Pick the one that matches your goal.
+
+**Watch out for abstraction leakage**:
+
+```
+  Problem: when a framework abstracts too much, bugs hide.
+
+  Example:
+    You use LangChain's AgentExecutor.
+    Agent keeps looping forever.
+    You can't figure out why.
+    Logs hidden inside abstractions.
+
+    vs hand-rolled:
+    You have 30 lines of Python.
+    Add print statements.
+    Immediately see: "agent keeps calling search_web with same query".
+    Fix: dedupe tool calls.
+
+  Rule: prototype with framework, PRODUCTIONIZE by understanding
+  what the framework does and (possibly) replacing with custom code.
+```
+
+**Observability stacks** (critical for production):
+
+```
+  LangSmith (LangChain's):
+    traces every step of every agent run.
+    see prompts, outputs, tool calls, errors.
+
+  Helicone:
+    LLM-call logging.
+    costs, latencies, errors.
+
+  Braintrust:
+    eval + monitoring combined.
+
+  Arize Phoenix (open source):
+    tracing with span-level detail.
+
+  Hand-rolled:
+    structured logging to JSON.
+    analyze later with jq / DuckDB / Pandas.
+
+  → Whatever framework you pick, HAVE observability.
+  → You'll need it when things go wrong.
+```
+
+**My honest recommendation**:
+
+```
+  For this course's capstone (your first serious agent):
+
+  Step 1: Hand-roll in ~50 lines.
+  Step 2: Get it working end-to-end.
+  Step 3: If you hit real pain → reach for LangChain.
+  Step 4: If you hit framework pain → back to hand-roll.
+
+  Many production agents end up as careful hand-rolls + helper libraries.
+  Few end up as pure framework code.
+
+  Why: the SPECIFIC combination of tools/flow/errors for YOUR problem
+  rarely matches what a framework provides out of the box.
+```
+
 ## Criteria for picking
 
 Ask:
