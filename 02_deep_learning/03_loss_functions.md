@@ -97,6 +97,21 @@ MSE: symmetric, smooth. Cross-entropy: asymmetric, explodes when the model is co
 
 **See softmax + cross-entropy together** (this is what every LLM uses):
 
+```viz
+{"viz": "cross_entropy"}
+```
+
+Slide the probability the model assigned to the TRUE next token. Watch the loss:
+
+- p = 1.0 → loss = 0 (model got it right, no surprise)
+- p = 0.5 → loss ≈ 0.69 nats
+- p = 0.1 → loss ≈ 2.3 nats
+- p = 0.001 → loss ≈ 6.9 nats (model was confidently wrong, huge surprise)
+
+Training minimizes this curve. Every gradient step makes the model slightly *less surprised* by reality.
+
+---
+
 ```
   Correct class: "mat" (token ID 47)
 

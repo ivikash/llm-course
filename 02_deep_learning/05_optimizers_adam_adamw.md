@@ -110,6 +110,19 @@ Covered in Module 4 Lesson 5.
 
 Hard to draw well in ASCII. Watch **Sebastian Ruder's optimizer comparison gif**: https://ruder.io/optimizing-gradient-descent/ - animated 2D loss surfaces show each optimizer tracing a different path to the minimum. Highly recommended.
 
+**Or watch them race right here:**
+
+```viz
+{"viz": "optimizers_compare"}
+```
+
+Press **Run**. SGD (red), SGD+momentum (orange), and Adam (blue) all start from the same point. They race through a curved valley to the minimum at (3,3). You'll see:
+- SGD zigzags across the narrow direction, slowly.
+- SGD+momentum smooths the oscillation, gets there faster.
+- Adam's per-parameter learning rates glide through the curved valley efficiently.
+
+Try changing the learning rate. Too big → bounce out. Too small → crawl.
+
 **The "why AdamW decouples weight decay" picture**:
 
 ```

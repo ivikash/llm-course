@@ -114,30 +114,11 @@ All monotonic-ish, all nonlinear, all have derivatives that flow nicely.
 
 **Run this to see them yourself**:
 
-```python
-import torch
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-
-x = torch.linspace(-5, 5, 200)
-fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-for name, fn in [("ReLU", F.relu), ("GELU", F.gelu), ("SiLU", F.silu), ("Tanh", torch.tanh)]:
-    ax[0].plot(x.numpy(), fn(x).numpy(), label=name)
-ax[0].legend(); ax[0].grid(); ax[0].set_title("Activations")
-
-# gradients (derivatives)
-for name, fn in [("ReLU", F.relu), ("GELU", F.gelu), ("SiLU", F.silu), ("Tanh", torch.tanh)]:
-    xg = x.clone().requires_grad_(True)
-    fn(xg).sum().backward()
-    ax[1].plot(x.numpy(), xg.grad.numpy(), label=f"d{name}/dx")
-ax[1].legend(); ax[1].grid(); ax[1].set_title("Derivatives (gradient flow)")
-plt.savefig("activations.png")
+```viz
+{"viz": "activation_zoo"}
 ```
 
-What to notice:
-- ReLU's derivative is exactly 0 for x<0. That's the "dying neuron" problem - no gradient flow, no learning for that neuron.
-- GELU and SiLU stay smooth. Better gradient flow at scale.
-- This is why modern LLMs use GELU/SwiGLU, not ReLU.
+Left panel: each activation function. Right panel: its derivative. Notice ReLU's derivative is exactly 0 for x&lt;0 — that's the "dying neuron" problem. GELU and SiLU stay smooth. Why modern LLMs use GELU/SwiGLU, not ReLU.
 
 **Why stacking linears without nonlinearity is pointless**:
 

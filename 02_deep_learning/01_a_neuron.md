@@ -102,6 +102,14 @@ Three neurons, each doing its own weighted sum in parallel - that's `nn.Linear(4
 
 **Interactive playground**: https://playground.tensorflow.org/ - literally watch neurons learn to classify data. Change activations, layer widths, see effects.
 
+**Or play with a single neuron right here:**
+
+```viz
+{"viz": "neuron"}
+```
+
+Slide w and b. Change the activation. See how one neuron maps input to output. Compare ReLU vs GELU vs tanh visually.
+
 ## Exercise
 
 1. Implement `nn.Linear` by hand:
