@@ -139,6 +139,171 @@ Whisper → text → LLM is a chain. Direct-audio-in models skip the transcripti
 
 These avoid transcription-loss and can capture prosody, emotion, etc. The future of voice AI.
 
+## Visualize this
+
+**Whisper's pipeline**:
+
+```
+  audio waveform (16 kHz sampling)        "This is a test."
+  ┌────────────────────────┐                      ↑
+  │ ╱╲╱╲╱╲╲╱╲╱╲╱╲╲╱╲     │                      │
+  │  (just numbers over    │        ┌─────────────┐
+  │   time, 16000/sec)     │        │ Decoder      │
+  └─────────┬──────────────┘        │ (transformer │
+            │                        │  that outputs │
+            ▼                        │  text tokens) │
+  ┌─────────────────────┐            └─────▲────────┘
+  │ Convert to log-mel   │                  │ cross-attention
+  │  spectrogram         │                  │
+  │  (2D "picture" of    │    ┌─────────────┴──────┐
+  │   frequencies over   │    │ Encoder            │
+  │   time)              │───▶│ (transformer       │
+  └─────────────────────┘    │  reading audio     │
+                             │  spectrogram)      │
+                             └────────────────────┘
+```
+
+Encoder-decoder transformer, same as 2017 paper, applied to audio→text.
+
+**Mel-spectrogram: audio as an "image"**:
+
+```
+  Audio (1D over time):
+  ╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲
+
+  Process with FFT over sliding windows:
+
+  time steps →
+                  t=0   t=1   t=2   t=3   t=4   t=5   ...
+                ┌─────┬─────┬─────┬─────┬─────┬─────┐
+  low freq     │  .   │  .   │  .   │  ●   │  ●   │  .   │
+  mid freq     │  ●   │  ●   │  .   │  .   │  ●   │  ●   │
+                │  ●   │  ●   │  ●   │  ●   │  ●   │  ●   │  (each cell:
+  mid freq     │  .   │  ●   │  ●   │  ●   │  .   │  .   │   energy at
+                │  .   │  ●   │  ●   │  .   │  .   │  .   │   that freq
+  high freq    │  .   │  .   │  ●   │  .   │  .   │  .   │   at that time)
+                └─────┴─────┴─────┴─────┴─────┴─────┘
+
+  80 frequency bins × ~3000 time steps for 30 seconds of audio
+  → a 2D array the transformer can treat like patches
+```
+
+**Whisper sizes**:
+
+```
+  Model     Params    VRAM      Speed       Quality
+  ────────  ────────  ────────  ──────────  ─────────
+  tiny       39M      <1GB       very fast   meh
+  base       74M      <1GB       fast         okay
+  small      244M     2GB         medium       good (sweet spot)
+  medium     769M     5GB         slower       very good
+  large-v3   1.5B     10GB        slow         excellent
+
+  For most uses: 'small' or 'medium'.
+  For production quality: 'large-v3'.
+  For real-time on laptop: 'base' or 'small' + faster-whisper lib.
+```
+
+**Whisper tasks (one model, many jobs)**:
+
+```
+  Special tokens tell Whisper what to do:
+
+  <|transcribe|>   → transcribe speech to text
+  <|translate|>    → translate any language to English
+  <|en|><|fr|>...  → language tokens (identifies input language)
+  <|notimestamps|> → just text, no timestamps
+  <|0.00|>...      → include timestamps
+
+  Example calls:
+    whisper audio.mp3                           → English transcription
+    whisper audio.mp3 --language Chinese         → Chinese transcription
+    whisper audio.mp3 --task translate           → English translation
+```
+
+**Latency breakdown (real-time use)**:
+
+```
+  Streaming transcription target: 300ms latency
+
+  Components:
+    Audio capture:          ~50ms (sampling, buffering)
+    Preprocessing (mel):    ~30ms
+    Encoder pass:           ~80ms (depends on chunk length)
+    Decoder pass:           ~50-200ms (autoregressive)
+    Postprocessing:          ~20ms
+    ─────────────────────── 230-380ms total
+
+  Libraries optimized for speed:
+    whisper.cpp             C++ port, runs on CPU, fast on Mac
+    faster-whisper          CTranslate2 backend, 2-4× faster
+    insanely-fast-whisper    chunked parallelism, HF
+    VoxWhisper               real-time streaming variants
+```
+
+**The WisprFlow use case (desktop voice input)**:
+
+```
+  WisprFlow ≈ Whisper running locally + UX for speech-to-text everywhere.
+
+  Typical flow:
+    1. user holds keyboard shortcut
+    2. app captures audio
+    3. Whisper transcribes offline
+    4. transcribed text pasted wherever cursor is
+
+  Why it works:
+    - 100% offline → privacy
+    - Whisper is free (MIT license)
+    - Near-human accuracy
+    - Multilingual by default
+```
+
+**Running it** (30 seconds):
+
+```bash
+pip install openai-whisper
+whisper my_audio.mp3 --model small
+# outputs: my_audio.txt, .srt, .vtt, .tsv
+```
+
+Or Python:
+```python
+import whisper
+model = whisper.load_model("small")
+result = model.transcribe("my_audio.mp3")
+print(result["text"])
+```
+
+That's a production-ready speech-to-text system in 3 lines.
+
+**Faster alternative**:
+
+```python
+from faster_whisper import WhisperModel
+model = WhisperModel("small", compute_type="int8")
+segments, info = model.transcribe("my_audio.mp3", beam_size=5)
+for segment in segments:
+    print(f"[{segment.start:.2f}s] {segment.text}")
+```
+
+2-4× faster than openai-whisper. Runs on CPU decently.
+
+**Typical accuracy**:
+
+```
+  Benchmark           large-v3    small     tiny
+  ────────────────────  ──────     ─────     ────
+  LibriSpeech clean     3.1%       6.8%      12%   (WER, lower better)
+  Common Voice English  8.5%       14.0%    22%
+  Accented English       6-12%     11-20%    20-35%
+  Noisy audio            10-20%    15-30%    30-50%
+  Non-English           varies    varies    bad
+
+  Modern phones: Siri/Google have 95%+ accuracy.
+  Whisper approaches that at the 'small' model size.
+```
+
 ## Exercises
 
 1. Install Whisper. Transcribe a 2-minute clip of yourself speaking:

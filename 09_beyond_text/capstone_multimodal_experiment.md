@@ -208,6 +208,182 @@ while True:
 
 Total for this entire capstone: ~$5 if you use APIs, $0 if you have a GPU.
 
+## Visualize this
+
+**The modality tour, one page**:
+
+```
+  ┌──────────────────────────────────────────────────────────┐
+  │                                                              │
+  │   YOUR LAPTOP, ONE WEEKEND                                   │
+  │                                                              │
+  │   1. TRANSCRIBE (Whisper)                                    │
+  │      audio → text                                             │
+  │      run: `whisper my_recording.mp3 --model small`           │
+  │                                                              │
+  │   2. GENERATE IMAGES (Stable Diffusion)                      │
+  │      text → image                                             │
+  │      "a dragon made of cables" × 5 prompts                   │
+  │                                                              │
+  │   3. VISION-LANGUAGE (LLaVA or GPT-4V)                       │
+  │      image + question → text                                  │
+  │      5 photos, 3 questions each                                │
+  │                                                              │
+  │   4. TEXT-TO-SPEECH (OpenAI TTS or XTTS)                     │
+  │      text → audio                                             │
+  │      generate 3 spoken samples                                │
+  │                                                              │
+  │   5. ONE ADVANCED THING                                       │
+  │      - train a LoRA on your face                              │
+  │      - build a voice agent (ASR + LLM + TTS)                  │
+  │      - clone your voice                                       │
+  │                                                              │
+  │   TOTAL: ~$5-15 in API costs, or $0 if you have GPU          │
+  │          ~8-10 hours of hands-on exploration                  │
+  │                                                              │
+  └──────────────────────────────────────────────────────────┘
+```
+
+**Success progression diagram**:
+
+```
+  Start of weekend:
+     "I've heard of these models."
+
+  After Task 1 (Whisper):
+     "I've transcribed my own audio."  ← tangible skill
+
+  After Task 2 (Stable Diffusion):
+     "I've generated images matching my prompts."  ← creative power
+
+  After Task 3 (LLaVA/GPT-4V):
+     "I've had AI describe my photos."  ← understanding
+
+  After Task 4 (TTS):
+     "I've generated AI speech."  ← output in any modality
+
+  After Task 5 (advanced):
+     "I've built an end-to-end system."  ← integration
+
+  End of weekend:
+     "I've worked with every major modality of generative AI.
+      I know their capabilities and failure modes firsthand."
+```
+
+**Tool stack comparison**:
+
+```
+  For each task, you can pick:
+  
+  Task            Free option              Paid option           Hybrid
+  ──────────────  ────────────────────     ──────────────────    ──────────────
+  Transcribe       whisper-cli (CPU ok)     OpenAI Whisper API    faster-whisper
+  Image gen        SD 1.5 on 4GB VRAM       DALL-E 3 API          Replicate
+  Vision-LM        LLaVA 7B (10GB VRAM)     GPT-4o API            HF Spaces demo
+  TTS              XTTS v2 (5GB VRAM)       ElevenLabs API        OpenAI TTS
+  Voice cloning    XTTS v2                  ElevenLabs            Fish Speech
+  
+  Learning: run the FREE options, to feel constraints.
+  Production: use PAID options, to move fast.
+```
+
+**The voice agent** (~60 lines, runs locally):
+
+```python
+# Run this end-to-end agent:
+import whisper, sounddevice as sd, numpy as np
+from TTS.api import TTS
+from openai import OpenAI
+
+asr = whisper.load_model("small")
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+llm = OpenAI()
+
+def record(sec=5):
+    print(f"Recording for {sec}s...")
+    audio = sd.rec(16000 * sec, samplerate=16000, channels=1)
+    sd.wait()
+    return audio.flatten()
+
+def transcribe(audio):
+    return asr.transcribe(audio)["text"]
+
+def chat(prompt):
+    r = llm.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return r.choices[0].message.content
+
+def speak(text, ref_wav):
+    tts.tts_to_file(text=text, speaker_wav=ref_wav, language="en",
+                    file_path="reply.wav")
+    # play reply.wav (platform-dependent)
+
+print("Press Enter to speak (5 sec)...")
+while True:
+    input()
+    audio = record()
+    text = transcribe(audio)
+    print(f"You: {text}")
+    reply = chat(text)
+    print(f"AI: {reply}")
+    speak(reply, "my_voice_sample.wav")
+```
+
+Voice in → voice out. Your personal AI assistant. ~60 lines.
+
+**What to put in your multimodal_report.md**:
+
+```markdown
+# My Multimodal AI Experiment
+Date: [your date]
+Hardware: [GPU, or API-only]
+Budget: $[amount]
+Time: ~[hours]
+
+## What I tried
+
+### Whisper transcription
+- File: 2-min voice memo
+- Accuracy: ~95% (missed a few names)
+- Translation from [language]: worked, surprising quality
+
+### Stable Diffusion
+- 5 prompts tested
+- Best result: [prompt → screenshot inline]
+- Worst result: [what went wrong]
+- Guidance scale sweet spot: 7
+
+### Vision-LM
+- Used: LLaVA 7B / GPT-4o / ...
+- Tested on 5 photos
+- Strong at: general description, colors, object counting
+- Weak at: specific faces, text in images
+
+### TTS
+- Used: OpenAI tts-1 / ElevenLabs / XTTS
+- Quality: very natural
+- Latency: [time]
+- Cost: $[amount]
+
+### Advanced experiment
+[What you did. Screenshots / links.]
+
+## Top 3 surprises
+1. [Something unexpected]
+2. [Something unexpected]
+3. [Something unexpected]
+
+## Key limitations observed
+[Where things broke]
+
+## What I want to explore next
+[Next directions]
+```
+
+**Submit this!** Put it in your portfolio / blog. It's proof of hands-on multimodal experience, which 99% of AI-adjacent professionals lack.
+
 ## Why this matters
 
 After this capstone, you've **personally interacted with every major modality of generative AI**. You have direct experience - not secondhand - with the capabilities and limits.

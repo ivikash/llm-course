@@ -158,6 +158,264 @@ These critiques are partially right. Current models break in ways that suggest s
 
 If 2020-2024 was "LLMs took off", 2024-2028 may be "world models took off".
 
+## Visualize this
+
+**What we mean by "world model"**:
+
+```
+  Bad world model:              Good world model:
+  (memorizes trajectories)      (learns physics)
+
+  Input: "a glass falls off    Input: "a glass falls off
+          a table"                     a table"
+          │                             │
+          ▼                             ▼
+  Output: video of that           Output: video showing
+  specific falling glass it       ANY glass falling,
+  has seen before.                 obeying gravity, shattering
+                                   realistically, fluids spilling.
+
+  Memorization doesn't generalize.
+  Physics does.
+```
+
+**The world model hypothesis, visualized**:
+
+```
+  Hypothesis: "A sufficiently capable video generator learns physics."
+
+  Evidence FOR:
+    ✓ Sora shows emergent object permanence
+    ✓ Genie generates playable game worlds from images
+    ✓ Dreamer's world models enable RL in imagination
+
+  Evidence AGAINST:
+    ✗ Sora breaks physics on edge cases
+    ✗ Objects teleport / duplicate
+    ✗ Causality violated
+    ✗ Can't extrapolate to novel situations
+
+  Current state: partial world-modeling. Not a true simulator.
+```
+
+**Spectrum from video generation → world simulator**:
+
+```
+       mere video synthesis              true world simulator
+       (pattern matching)                   (physics + reasoning)
+                │                                  │
+       ────────●──────────────●──────────────●──────
+                              ↑                ↑
+                              │                │
+                    Sora (2024)               "AGI"
+                    Genie (2024)             (not there yet)
+                    Veo 3 (2025)
+                    
+       ← we are HERE
+```
+
+**Dreamer: learning a world model for RL**:
+
+```
+  Agent in an environment:
+    - takes action
+    - observes new state
+    - gets reward
+
+  Traditional RL:
+    try actions in the REAL environment
+    → slow, expensive (real robots, real world)
+
+  Dreamer:
+    ┌──────────────────────────┐
+    │ Learn a latent world model  │
+    │ (predicts next state given  │
+    │  current state + action)    │
+    └──────────────┬──────────────┘
+                   │
+                   ▼
+    train the RL policy ENTIRELY in imagination:
+      current state + action → model predicts next state
+      model predicts reward
+      policy learns from imagined rollouts
+
+    Only real environment needed for occasional grounding.
+    Massively reduces sample complexity.
+
+    DreamerV3 (2023) solved many tasks zero-shot using this idea.
+```
+
+**Genie: 2D games from single images**:
+
+```
+  Input: a single video game screenshot
+  ┌──────────────────┐
+  │ 🎮 platformer      │
+  │  /\                │
+  │ /  \    player     │
+  │ ━━━━━ ground       │
+  └──────────────────┘
+          │
+          ▼
+  Genie model (1B+ params, trained on 200k hours of game video)
+          │
+          ▼
+  Interactive playable game!
+
+  User presses [LEFT]: next frame shows player moving left
+  User presses [JUMP]: player arcs in trajectory
+  User presses [RIGHT]: continues right
+  ...
+
+  Trained unsupervised from video (no labels of actions).
+  Latent "actions" emerge from training.
+```
+
+**The skeptical view** (Yann LeCun et al.):
+
+```
+  LeCun: "Video generation models are NOT world models."
+
+  His argument:
+    - They are autoregressive generators
+    - They don't have a causal model of reality
+    - They generate what LOOKS plausible, not what IS
+
+  His alternative:
+    JEPA (Joint Embedding Predictive Architectures)
+    Predict representations, not pixels
+    More grounded in causal structure
+
+  Still: LeCun's approach hasn't dominated yet.
+  Sora-style continues to improve rapidly.
+  Debate active, unresolved.
+```
+
+**Embodied AI: robots using world models**:
+
+```
+  2023-2024 trend: robot foundation models.
+
+  ┌───────────────────────────────────────┐
+  │ Robot sees its environment (camera)     │
+  │         │                                 │
+  │         ▼                                 │
+  │   Vision-Language-Action (VLA) model      │
+  │     - Vision: camera feed                 │
+  │     - Language: task instruction          │
+  │     - Action: motor commands              │
+  │                                           │
+  │         │                                 │
+  │         ▼                                 │
+  │   Robot executes motion                   │
+  └───────────────────────────────────────┘
+
+  Trained on:
+    - Teleoperation data (human demo)
+    - Video data
+    - Simulated environments
+
+  Examples:
+    RT-1, RT-2 (Google): generalist robotic transformer
+    Pi-0 (Physical Intelligence 2024)
+    GR00T (NVIDIA 2024)
+    Figure, 1X, Unitree humanoids (various)
+
+  Still: robots are brittle in practice. "5 years away" syndrome.
+```
+
+**SIMA: generalist game-playing agent**:
+
+```
+  DeepMind's SIMA (2024):
+    One agent that plays many video games.
+    Takes:
+      - visual input (screen)
+      - natural language instruction ("go left", "find the key")
+    Outputs:
+      - game actions (keyboard/mouse equivalents)
+
+  Demonstrated on:
+    Goat Simulator
+    Valheim
+    No Man's Sky
+    many more
+
+  Generalization: ability to follow instructions in NEW games.
+  Not yet human-level, but impressive.
+```
+
+**What about AGI?** (the speculation):
+
+```
+  Some prominent researchers argue:
+    "True AGI requires a world model."
+    "A model that can PREDICT and PLAN in the physical world."
+    "Current LLMs are language models. AGI needs more."
+
+  Counter-argument:
+    "Current LLMs are already partial world models."
+    "With enough data + compute, they'll become full ones."
+    "Don't need explicit physics; scale provides it."
+
+  Nobody knows who's right. It's partly a definitional question.
+  Bet on both directions hedges well.
+```
+
+**What to watch for in 2025-2028**:
+
+```
+  Research signals that world models are "working":
+  
+    ✓ Video models that extrapolate novel physics ("what if gravity
+      reversed here?")
+    ✓ Robots that learn new tasks from 1 demonstration
+    ✓ Game agents that generalize to unseen games
+    ✓ Sora-style models used for actual simulation (weather, fluid)
+    ✓ Improvements on ARC-AGI / Humanity's Last Exam requiring world reasoning
+
+  Research signals that they're NOT:
+    ✗ Continued struggle with causal reasoning
+    ✗ Video generators break on novel situations
+    ✗ Robots plateau at narrow demonstrations
+    ✗ Benchmarks that require real simulation consistently fail
+```
+
+**Real-world applications (today)**:
+
+```
+  Working, now:
+    ✓ Architectural visualization
+    ✓ Product mockups
+    ✓ Storyboards (with editing)
+    ✓ Social media content
+
+  Emerging:
+    ~ Robot training simulators
+    ~ Climate modeling assistants
+    ~ Drug discovery (physical molecule simulation)
+    ~ Game engine AI (procedural content)
+
+  Far future:
+    ✗ Fully autonomous robots in unstructured environments
+    ✗ Scientific discovery from simulation alone
+    ✗ Human-like understanding of physical world
+```
+
+**Honest conclusion**:
+
+```
+  World models are a REAL capability direction.
+  Sora / Genie / Dreamer are REAL progress.
+
+  But we're further from "AI that truly simulates reality"
+  than hype suggests.
+
+  Likely path: incremental improvements over 5-10 years.
+  Watch for: integration with robotics, novel physics tests.
+  Don't bet: on "world models solved in 2025."
+```
+
 ## Exercises
 
 1. Read Sora's technical blog (10 min). Note the "world simulator" framing.

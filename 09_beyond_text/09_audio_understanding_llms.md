@@ -170,6 +170,214 @@ Expect: voice agents for customer service, education, therapy, companionship, ac
 - SALMONN (Tang 2023): https://arxiv.org/abs/2310.13289
 - AudioPaLM (Rubenstein 2023): https://arxiv.org/abs/2306.12925
 
+## Visualize this
+
+**The shift from pipeline to unified audio LLM**:
+
+```
+  Pipeline approach (pre-2024):
+  ┌─────┐   ┌───────┐    ┌─────┐    ┌───────┐   ┌─────┐
+  │ mic │──▶│ ASR    │───▶│ LLM │───▶│ TTS    │──▶│ spk │
+  └─────┘   │(Whisper)│    │(GPT)│    │(Eleven)│   └─────┘
+             └───────┘    └─────┘    └───────┘
+             500ms        1000ms      300ms     = ~2 sec latency
+
+   Loss:
+   - Tone, emotion stripped when → text
+   - Pauses, hesitations lost
+   - Can't laugh, sigh, emphasize
+
+  Unified approach (GPT-4o, 2024+):
+  ┌─────┐   ┌─────────────────────┐   ┌─────┐
+  │ mic │──▶│ Multimodal LLM        │──▶│ spk │
+  └─────┘   │  audio in → audio out │   └─────┘
+             └─────────────────────┘
+               ~300ms total latency
+
+   Preserves:
+   - Prosody (rising/falling intonation)
+   - Emotion (excited, sad, calm)
+   - Paralinguistics (laughs, sighs)
+   - Speaker characteristics
+```
+
+**Audio tokens: making audio "language-like"**:
+
+```
+  Raw audio:
+  [waveform samples at 16000 Hz]
+  → 16000 numbers per second
+  → way too many to "tokenize" directly
+
+  Solution: neural codec (EnCodec / SoundStream)
+  ┌──────────┐                   ┌──────────┐
+  │ encoder  │ ─ discrete tokens ─▶│ decoder  │
+  │          │   ~75 tokens/sec    │          │
+  │  audio   │   4 codebooks       │  audio   │
+  │  (wave)  │   each of 1024 vocab │  (wave)  │
+  └──────────┘                   └──────────┘
+
+  Effectively: audio → sequence of 75×4 = 300 tokens/sec.
+  Now the LLM can generate audio the same way it generates text!
+```
+
+**How GPT-4o likely works (not confirmed, educated guess)**:
+
+```
+  ┌──────────────────────────────────────┐
+  │    Unified Transformer                 │
+  │                                        │
+  │  Input:                                 │
+  │    [audio tokens from user]           │
+  │    [image tokens from camera]          │
+  │    [text tokens from instructions]    │
+  │                                        │
+  │  Output:                                │
+  │    [audio tokens to speak]            │
+  │    [text tokens for logging]           │
+  └──────────────────────────────────────┘
+
+  Trained on:
+    - Speech pairs (your voice → my voice)
+    - Image+speech narration
+    - Text-to-audio matching
+    - Multi-turn audio conversations
+```
+
+**Open research / community options**:
+
+```
+  Qwen2-Audio (Alibaba, 2024):
+    Input: audio + optional text
+    Output: text
+    Good at: transcription, speech understanding, music analysis
+
+  SALMONN (Tsinghua, 2023):
+    Open audio understanding
+    Speech + music + sound events
+
+  AudioPaLM (Google, 2023):
+    Research only, not released
+    Shows what's possible
+
+  Running Qwen2-Audio:
+    from transformers import Qwen2AudioForConditionalGeneration
+    # loads like any HF model, audio input supported
+```
+
+**Capabilities beyond transcription**:
+
+```
+  ✓ "What emotion is in this voice?"          (emotion detection)
+  ✓ "How many speakers in this recording?"     (diarization)
+  ✓ "What's the genre of this music?"          (music classification)
+  ✓ "What's the user's age/accent?"            (speaker profiling)
+  ✓ "Describe the audio scene"                 (environmental sound)
+  ✓ "Sing this text as a rap"                  (creative TTS)
+  ✓ "Continue this audio in the same style"    (audio generation)
+```
+
+**Voice agents: the 2026 frontier**:
+
+```
+  Traditional phone support agent:
+    - Human picks up, 30-60 seconds wait
+    - Follows script
+    - Transfers to specialist if complex
+
+  Modern voice AI agent (Cartesia + GPT-4o + custom):
+    - Always available, 0ms wait
+    - Natural conversation
+    - Knows user history (RAG over customer data)
+    - Can laugh, empathize, show frustration
+    - Handles 80% of calls, escalates 20%
+
+  Still struggles with:
+    - Very angry customers
+    - Rapid speakers
+    - Heavy accents
+    - Ambiguous intent
+```
+
+**Running voice-to-text-to-response (rough prototype)**:
+
+```python
+# A minimal voice assistant in ~50 lines
+import whisper, sounddevice as sd, openai, numpy as np
+from TTS.api import TTS
+
+asr = whisper.load_model("small")
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+openai_client = openai.OpenAI()
+
+def listen(duration=5):
+    audio = sd.rec(int(16000 * duration), samplerate=16000, channels=1)
+    sd.wait()
+    return audio.flatten()
+
+def transcribe(audio):
+    result = asr.transcribe(audio)
+    return result["text"]
+
+def respond(prompt):
+    resp = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return resp.choices[0].message.content
+
+def speak(text):
+    tts.tts_to_file(
+        text=text,
+        speaker_wav="reference.wav",
+        language="en",
+        file_path="response.wav"
+    )
+    # play response.wav
+
+# Main loop:
+while True:
+    print("Listening (5s)...")
+    audio = listen()
+    text = transcribe(audio)
+    print(f"You: {text}")
+    reply = respond(text)
+    print(f"AI: {reply}")
+    speak(reply)
+```
+
+~50 lines of classical pipeline. Not as good as GPT-4o voice but works.
+
+**Time-to-X latency comparison (2026)**:
+
+```
+                       time-to-first-response
+  Classical pipeline    2000ms    (Whisper + GPT + TTS)
+  GPT-4o voice           300ms    (unified, API)
+  Cartesia optimized     150ms    (latest SSM architecture)
+
+  Human-to-human average: ~200ms end-of-turn response.
+  Modern voice AI is finally hitting human-like timing.
+```
+
+**Emotion-aware generation**:
+
+```
+  Old TTS input:
+    "I'm so happy to see you!"
+    → flat robotic voice
+    → user says "sounds fake"
+
+  GPT-4o output:
+    "I'm so happy to see you!"
+    → model chose enthusiastic tone
+    → proper prosody: rising on "happy"
+    → slight laugh after
+    → user says "felt real"
+
+  This is the unlock that makes voice AI genuinely useful.
+```
+
 ## Exercises
 
 1. Use OpenAI's voice mode in ChatGPT (if subscribed). Note: latency, interruption handling, emotion.

@@ -188,6 +188,213 @@ Runway, Luma, Pika have REST APIs. Easier starting point for most people.
 - HunyuanVideo paper: https://arxiv.org/abs/2412.03603
 - Survey paper "Sora: A Review" (2024).
 
+## Visualize this
+
+**Video as space-time cube**:
+
+```
+  An image is 2D (width × height).
+  A video is 3D (width × height × TIME).
+
+     frames through time →
+     ┌─────┬─────┬─────┬─────┬─────┐
+     │ t=0 │ t=1 │ t=2 │ t=3 │ t=4 │
+     │     │     │     │     │     │
+     │ ░▒▓ │ ░▒▓▓│ ▒▓▓▓│ ▓▓▓●│ ▓▓●● │  (camera panning across scene)
+     │     │     │     │     │     │
+     └─────┴─────┴─────┴─────┴─────┘
+
+   For a 5s clip at 24 fps:
+     120 frames × 512×512 pixels × 3 colors = 94 million values per clip
+     (vs 0.8 million for one image; 120× more data)
+
+   Why video is hard:
+     - 120× more compute
+     - must preserve temporal consistency
+     - objects must move believably
+     - lighting must stay coherent
+```
+
+**Sora's "space-time patches" approach**:
+
+```
+  Classical video generation: frame-by-frame (like image stacking).
+
+  Sora: treat video as 3D volume, patchify in both space AND time.
+
+  video (T=8 frames × H=32 × W=32 × C=3)
+       │
+       ▼
+  split into 3D cubes (e.g., 2 frames × 8 × 8 patches)
+       │
+       ▼
+  each cube → one token
+  total tokens: (T/2) × (H/8) × (W/8) = 4 × 4 × 4 = 64 tokens
+       │
+       ▼
+  feed through a diffusion transformer (DiT)
+  attention sees ALL spatial + temporal relationships simultaneously
+       │
+       ▼
+  denoised cubes → reshape back to video
+```
+
+**Video diffusion compute cost**:
+
+```
+  Image diffusion at 512×512:
+    ~5 seconds per image on H100.
+
+  Video diffusion at 5 seconds, 24 fps, 512×512:
+    naive: ~5s × 120 frames = 600 seconds (10 minutes per 5s video)
+    Sora (at full resolution, 1 minute): estimated $1-10 per video
+
+  Why generation is slow:
+    - 120× more pixels
+    - Cross-frame attention (expensive)
+    - Longer "denoising" schedule needed (more steps)
+```
+
+**Quality timeline (what we get in 2026)**:
+
+```
+  By generation:
+    2022: 1-2 second clips, obviously AI
+    2023: 3-5 seconds, decent for short GIFs
+    2024: Sora shipped - 1 minute coherent video
+    2025: Better physics, character consistency
+    2026: Multi-minute clips with consistent characters
+
+  Benchmarks:
+    Most consumer products cap at 5-10 seconds (Pika, Runway)
+    Sora: up to 1 minute (paid)
+    Veo 3: up to several minutes, photorealistic
+```
+
+**The trilemma: quality vs length vs coherence**:
+
+```
+  You can currently pick 2 of 3:
+
+  quality + length:    blurs character identity over time
+                       ("who was that person?")
+
+  length + coherence:  grainy or low resolution
+                       (cheap generation)
+
+  quality + coherence: short clips only (3-5 sec)
+                       (resets before identity drifts)
+```
+
+**Image-to-video is easier than text-to-video**:
+
+```
+  Text-to-video:
+    "a dog running in a park"
+    → model has to imagine subject, scene, lighting, physics
+    → low reliability
+
+  Image-to-video:
+    input: a specific photo of a specific dog
+    prompt: "running"
+    → model animates from known starting frame
+    → much more controllable
+
+  Most commercial products use image-to-video as the reliable path.
+  Runway Gen-3, Pika, Luma all feature this prominently.
+```
+
+**Open models (2025-2026)**:
+
+```
+  CogVideoX (Tsinghua, 5B params):
+    Open weights, runs on 24GB VRAM
+    ~5-8 second clips
+    decent quality, improving rapidly
+
+  Open-Sora (HPC-AI Tech):
+    Open reproduction of Sora
+    Smaller than Sora but gaining
+
+  HunyuanVideo (Tencent):
+    2024 release, open
+    13B params, strong quality
+
+  Mochi 1 (Genmo):
+    open, 10B params
+    very good quality for open model
+
+  Tooling:
+    ComfyUI nodes for all of the above
+    Run locally with 24-48GB VRAM
+```
+
+**Commercial products snapshot**:
+
+```
+  Runway Gen-3/Gen-4:
+    ~5-10s clips, good for short scenes
+    text-to-video, image-to-video
+    $15-80/mo pricing
+
+  Pika 2.0:
+    short clips, anime-style strong
+    free tier available
+
+  Luma Dream Machine:
+    photorealistic motion
+    free tier → paid
+
+  Kling:
+    Chinese, high-quality motion
+    strong at realistic physics
+
+  OpenAI Sora:
+    1+ minute clips at 1080p
+    Included with ChatGPT Plus tier
+
+  Google Veo 3:
+    multi-minute clips
+    access-limited, emerging
+```
+
+**When is video generation good enough?**
+
+```
+  Already excellent (2025-2026):
+    ✓ Short social media clips
+    ✓ Stock-footage-style B-roll
+    ✓ Concept visualizations
+    ✓ Basic explainer animations
+
+  Getting there:
+    ~ Music videos / short films (with editing)
+    ~ Character-driven narratives
+    ~ Product demos
+
+  Not yet:
+    ✗ Feature films from scratch
+    ✗ Exact scene replication
+    ✗ Complex physics simulations
+    ✗ Consistent multi-hour narrative
+```
+
+**Video generation costs (approximate)**:
+
+```
+  Service            Price per clip
+  ─────────────────  ────────────────
+  Runway (5s)        $0.25-0.50
+  Pika (5s)          $0.10-0.20
+  Luma (5s)          $0.20-0.30
+  Sora (20s)         ~$1.00
+  Self-hosted Mochi  ~$0.20-0.40 (compute only)
+  Self-hosted CogVideo ~$0.10-0.20
+
+  For hobbyists: consumer GPUs can run open models.
+  For producers: APIs are faster but costs add up.
+```
+
 ## Exercises
 
 1. Generate a video via Runway, Pika, or OpenAI Sora (if you have access). Note the quality.

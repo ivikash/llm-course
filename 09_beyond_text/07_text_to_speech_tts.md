@@ -211,6 +211,215 @@ The architectural shift for voice is happening 2024-2026.
 - VALL-E (Wang 2023): https://arxiv.org/abs/2301.02111
 - NaturalSpeech 3 (Microsoft 2024): https://arxiv.org/abs/2403.03100
 
+## Visualize this
+
+**The two-stage TTS architecture (classical)**:
+
+```
+  text: "Hello world"
+       │
+       ▼
+  ┌─────────────────┐
+  │ Acoustic model   │  (Tacotron / FastSpeech / VITS)
+  │  text → spectrogram│  predicts mel-spectrogram from text
+  └─────────┬───────┘
+            │
+            ▼
+  mel-spectrogram (2D picture of sound: freq × time)
+            │
+            ▼
+  ┌─────────────────┐
+  │ Vocoder          │  (WaveNet / HiFi-GAN)
+  │  spec → waveform │  converts 2D spec to 1D audio
+  └─────────┬───────┘
+            │
+            ▼
+  audio waveform (playable sound)
+```
+
+**End-to-end TTS (modern)**:
+
+```
+  text: "Hello world"
+       │
+       ▼
+  ┌────────────────┐
+  │ Unified model   │  (VITS / VALL-E / XTTS / F5-TTS)
+  │ text → waveform  │  skip the intermediate spectrogram
+  └────────┬────────┘
+           │
+           ▼
+  audio waveform
+
+  Simpler to train. Often higher quality.
+```
+
+**VALL-E: TTS as language modeling**:
+
+```
+  Key insight: if audio → discrete tokens (via EnCodec),
+  then TTS becomes "predict the next audio token" (like GPT!).
+
+  Training:
+    (text prompt + 3s speaker sample) → produces audio tokens
+                                         matching the speaker's voice
+
+  The model:
+    ┌─────────────────────┐
+    │ Autoregressive LM    │
+    │ input:                │
+    │   text tokens         │
+    │   + speaker audio     │
+    │   tokens              │
+    │ output:                │
+    │   audio tokens        │
+    │   matching speaker    │
+    └─────────────────────┘
+
+  At inference: decode audio tokens → waveform via EnCodec decoder.
+
+  Result: voice cloning from 3 seconds of sample audio.
+```
+
+**Voice cloning pipeline (XTTS v2)**:
+
+```
+  Step 1: speaker reference
+  ┌──────────────────┐
+  │  reference.wav    │  10-30 seconds of target speaker
+  │  "Hi, my name is Bob." │
+  └────────┬─────────┘
+           │
+           ▼
+     extract speaker embedding (256-d fingerprint)
+
+  Step 2: TTS with cloned voice
+  ┌──────────────────┐
+  │  text: "Hello!"  │ + speaker embedding
+  └────────┬─────────┘
+           │
+           ▼
+  ┌──────────────────┐
+  │  XTTS model       │
+  └────────┬─────────┘
+           │
+           ▼
+  audio in Bob's voice saying "Hello!"
+```
+
+**The 2026 TTS quality landscape**:
+
+```
+  Quality     Cost/char    Cloning?   Runs locally?
+  ─────────   ──────────    ─────────  ─────────────
+  ElevenLabs   $$$           yes         no (API)
+  OpenAI TTS   $              no (preset voices only)  no (API)
+  PlayHT       $$            yes         no (API)
+  Cartesia     $$$           yes         no (API)
+  XTTS v2      free          yes         yes (5GB VRAM)
+  Fish Speech  free          yes         yes
+  F5-TTS       free          yes         yes (newer, faster)
+  MetaVoice    free          yes         yes
+
+  For best quality: ElevenLabs
+  For best open: XTTS v2 / Fish Speech / F5-TTS
+  For simplest: OpenAI TTS API
+```
+
+**Running it** (OpenAI API):
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+response = client.audio.speech.create(
+    model="tts-1",
+    voice="alloy",   # or "echo", "fable", "onyx", "nova", "shimmer"
+    input="Hello world! This is AI-generated speech.",
+)
+response.stream_to_file("hello.mp3")
+# cost: $0.015 per 1000 characters
+```
+
+Or local XTTS:
+
+```python
+from TTS.api import TTS
+
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+tts.tts_to_file(
+    text="Hello world!",
+    speaker_wav="my_voice_sample.wav",   # clone from THIS voice
+    language="en",
+    file_path="output.wav",
+)
+```
+
+A voice-cloned TTS running entirely on your laptop.
+
+**Latency comparison (streaming)**:
+
+```
+  Task: start speaking as soon as possible after request.
+
+  Service       Time-to-first-audio   Notes
+  ───────────  ────────────────────   ─────────────────────
+  ElevenLabs    ~300ms                  streaming API, good quality
+  OpenAI TTS    ~800ms                  streaming + non-streaming
+  Cartesia      ~75ms                   fastest known, "Sonic" model
+  XTTS (local)  ~500ms on 4090          decent with optimization
+
+  For real-time voice agents: Cartesia / ElevenLabs.
+  For pre-recorded content: any of the above.
+```
+
+**End-to-end voice conversation architectures**:
+
+```
+  Classic pipeline (3 models, high latency):
+     mic → ASR (Whisper) → LLM (GPT-4) → TTS (ElevenLabs) → speaker
+             ~500ms           ~1000ms        ~300ms            = ~2 seconds
+
+  Modern unified (GPT-4o, Gemini Live):
+     mic → multimodal LLM → speaker
+                 ~300ms total
+
+  GPT-4o can laugh, sigh, change emotional tone.
+  This is enabled because it processes audio directly, not via text.
+```
+
+**Voice cloning ethics matrix**:
+
+```
+                     OK to clone          Not OK to clone
+                     ──────────           ──────────────
+  Your own voice      ✓                   (not an issue)
+  Consenting person    ✓                   (not an issue)
+  Dead public figure   ?                   (legal gray zone)
+  Living public figure ✗ (defamation risk) ✓ (with satire clear)
+  Random stranger      ✗                   ✗ (illegal in many jurisdictions)
+
+  Commercial use: always get written consent.
+  Research: disclose AI use publicly.
+  Fraud: always illegal, often felony.
+```
+
+**The biggest 2026 TTS trend: expressive control**:
+
+```
+  Old TTS:
+    "Hello world." → flat robotic voice
+
+  New TTS (ElevenLabs v3, Cartesia):
+    "[excited] Hello world!" → enthusiastic tone
+    "[sad] Hello world."      → melancholy tone
+    "[whispered] Hello world." → whispered
+    "[slow, thoughtful] Hello world." → pacing + mood
+
+  Tags or style embeddings control emotion, pacing, emphasis.
+  Enabling: audiobooks, podcasts, games, accessibility.
+```
+
 ## Exercises
 
 1. Generate speech with OpenAI's TTS API. Try 3 different voices.
