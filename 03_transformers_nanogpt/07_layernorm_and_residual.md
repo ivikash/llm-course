@@ -2,7 +2,17 @@
 
 Two small tricks that made deep transformers possible.
 
-## Residual connections (skip connections)
+## Visualize this
+
+**Why pre-norm won:**
+
+```viz
+{"viz": "layernorm_residual"}
+```
+
+Slide depth up to 48. Post-norm (red) gradients vanish exponentially in early layers — the network can't learn anything deep. Pre-norm (green) stays healthy throughout. Below ~10 layers both work; beyond, only pre-norm. This single design choice is why we can train 96-layer GPT-3.
+
+**Residual connections (skip connections)**:
 
 Instead of `x -> f(x)`, do `x -> x + f(x)`. Each block adds a "correction" to the running representation, rather than replacing it.
 

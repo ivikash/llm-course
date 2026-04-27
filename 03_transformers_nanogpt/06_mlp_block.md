@@ -2,7 +2,17 @@
 
 Half of every transformer layer is attention. The other half is an **MLP (multi-layer perceptron)**. It's actually the larger half by parameter count.
 
-## The structure
+## Visualize this
+
+**The MLP block, live:**
+
+```viz
+{"viz": "mlp_block"}
+```
+
+Switch between GELU (nanoGPT) and SwiGLU (Llama, nanochat). Press **▶ Animate** to watch the token vector flow through. See the expand (C → 4C), activate, compress (4C → C) pattern. Parameter count updates with C.
+
+**The structure**:
 
 ```python
 class MLP(nn.Module):

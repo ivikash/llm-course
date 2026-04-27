@@ -58,6 +58,15 @@ for split, dset in tokenized.items():
 
 ## Reading during training: memory-mapped files
 
+**Watch nanoGPT pull a batch from disk:**
+
+```viz
+{"viz": "memmap_batching"}
+```
+
+The top row is `train.bin`. Press **New batch**: random offsets picked, block_size slices highlighted, stacked into x and y (y = x shifted by 1). No epochs, no DataLoader — memmap + random indexing is the whole data loader.
+
+
 In `nanoGPT/train.py`, `get_batch`:
 
 ```python
