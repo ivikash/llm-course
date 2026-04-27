@@ -187,6 +187,131 @@ wandb is default for a reason - best free tier and best UX. Every ML team I know
 
 5. **Privacy**: by default, runs are private to you. `project=xyz` can be made public, or teams.
 
+## Visualize this
+
+**What a wandb project looks like**:
+
+```
+  wandb.ai/your-username/my-llm-project/
+  │
+  ├── Runs:
+  │   │
+  │   ├── run-1 (d12 baseline)      loss: 2.85  █████
+  │   ├── run-2 (d12 higher lr)     loss: 3.12  ███   (worse)
+  │   ├── run-3 (d12 more data)     loss: 2.61  ███████  (better)
+  │   ├── run-4 (d24 baseline)      loss: 2.15  █████████
+  │   └── run-5 (d24 + fp8)         loss: 2.16  █████████  (same, 25% faster)
+  │
+  ├── Dashboard:
+  │   ┌──────────────┬──────────────┬──────────────┐
+  │   │ train/loss   │ val/loss     │ lr           │
+  │   └──────────────┴──────────────┴──────────────┘
+  │   ┌──────────────┬──────────────┬──────────────┐
+  │   │ grad_norm    │ tok_per_sec  │ mfu          │
+  │   └──────────────┴──────────────┴──────────────┘
+  │
+  └── Reports:
+      ├── "speedrun v1 analysis" (shareable)
+      └── "hyperparameter sweep results"
+```
+
+Every run is permanent, timestamped, linkable. Months later you can revisit "what did I try on 2026-02-15?"
+
+**Compare runs view (the most valuable feature)**:
+
+```
+  Select runs 4 and 5 → click "Compare":
+
+  config diff:
+    run-4: fp8=False
+    run-5: fp8=True
+    (everything else identical)
+
+  metrics overlaid:
+    loss         (run-4)         (run-5)
+      ●                 ●
+       ●                 ●        (nearly identical curves)
+        ●                 ●
+         ●●               ●●
+           ●●               ●●
+              ●●               ●●
+
+    tok_per_sec
+      ─────────────  run-4: 45k tok/s
+      ─────────────  run-5: 56k tok/s      ← 25% faster
+
+  Conclusion: fp8 gets same quality for 25% less compute. Ship it.
+```
+
+This kind of comparison is why wandb is indispensable.
+
+**Minimum viable wandb integration**:
+
+```python
+import wandb
+
+# one line to init
+wandb.init(project="my-llm-project", name="run-1", config={"lr": 3e-4, "batch": 32})
+
+# in training loop
+if step % 10 == 0 and master_process:
+    wandb.log({
+        "train/loss": loss.item(),
+        "train/lr": current_lr,
+        "train/grad_norm": grad_norm,
+        "train/tok_per_sec": throughput,
+    }, step=step)
+
+# finish
+wandb.finish()
+```
+
+4 lines. Infinite benefit. Do this for everything.
+
+**What a sweep looks like (hyperparameter tuning)**:
+
+```
+  sweep.yaml:
+  ───────────
+  program: train.py
+  method: random
+  metric:
+    goal: minimize
+    name: val/loss
+  parameters:
+    learning_rate:
+      distribution: log_uniform_values
+      min: 1e-5
+      max: 1e-3
+    batch_size:
+      values: [16, 32, 64]
+    dropout:
+      values: [0.0, 0.1, 0.2]
+
+  $ wandb sweep sweep.yaml
+  → creates sweep ID
+
+  $ wandb agent <sweep-id>
+  → runs combinations, logs to wandb, finds best
+
+  You launch multiple agents in parallel (multiple terminals).
+  Sweep page shows the parameter importance, best run, etc.
+```
+
+**Parallel coordinates plot (aha!)**:
+
+```
+  wandb auto-produces this for a sweep:
+
+  lr=1e-5 ─── bs=16 ─── drop=0.0 ── val_loss=3.2
+  lr=3e-5 ─── bs=32 ─── drop=0.1 ── val_loss=2.8
+  lr=1e-4 ─── bs=32 ─── drop=0.0 ── val_loss=2.5  ← best
+  lr=3e-4 ─── bs=64 ─── drop=0.1 ── val_loss=2.6
+  lr=1e-3 ─── bs=32 ─── drop=0.2 ── val_loss=3.8  ← diverged
+
+  Visually see which hyperparameters correlate with good/bad runs.
+```
+
 ## Exercises
 
 1. Enable wandb in nanoGPT's Shakespeare training. Run for 500 iterations. Watch the live curves in your browser.

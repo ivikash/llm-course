@@ -111,6 +111,122 @@ nanoGPT doesn't do anything fancy. The `--batch_size` and `--block_size` flags a
 
 `--device-batch-size` is the main lever. The training script reports MFU - if it's low, you're memory-bound or data-bound.
 
+## Visualize this
+
+**Memory budget for training (per-parameter accounting)**:
+
+```
+  bf16 mixed precision + AdamW:
+
+  1 parameter uses (in VRAM):
+  ┌─────────────────────────────┐
+  │ fp32 master weight   4 bytes│
+  │ bf16 working weight   2 bytes│
+  │ bf16 gradient        2 bytes│
+  │ fp32 AdamW m         4 bytes│
+  │ fp32 AdamW v         4 bytes│
+  └─────────────────────────────┘
+   16 bytes per param
+
+  Model size   →   Param memory
+  ──────────────   ─────────────
+  125M            2.0 GB
+  1B              16 GB
+  7B              112 GB   ← doesn't fit on 1× H100
+  13B             208 GB   ← needs FSDP across 2+ GPUs
+  70B             1.12 TB   ← needs 16 GPUs minimum
+  175B (GPT-3)    2.8 TB
+  1T              16 TB     ← requires clusters of many nodes
+
+  Plus activations (scales with batch × seq_len × layers).
+```
+
+**Why bf16 helps (but not as much as you'd think)**:
+
+```
+  Activations (the variable part):
+  ─────────────────────────────────
+  fp32:  4 bytes × B × T × C × L × const
+  bf16:  2 bytes × B × T × C × L × const   ← half
+
+  Net training memory typically drops 30-40% going fp32 → bf16.
+```
+
+**How to read nvidia-smi**:
+
+```
+  $ nvidia-smi
+
+  +-----------------------------------------------------------+
+  | NVIDIA-SMI 535.xx     Driver Version: 535.xx   CUDA 12.2   |
+  +----------------+------------------+------------------------+
+  | GPU  Name      | Memory-Usage     | GPU-Util  Temp  Power  |
+  +================+==================+========================+
+  | 0  H100 80GB   | 72543/81559 MiB  | 95%  42C   230W/700W   |
+  |                                   ↑                        |
+  |                    KEY: this is the "MFU ≈ 95%" target    |
+  +----------------+------------------+------------------------+
+  | 1  H100 80GB   | 72541/81559 MiB  | 96%  41C   228W/700W   |
+  | 2  H100 80GB   | 72540/81559 MiB  | 94%  43C   231W/700W   |
+  +----------------+------------------+------------------------+
+
+  Healthy training:
+  - GPU-Util: 60-95% sustained.
+  - Memory: high (not OOMing, but using what's there).
+  - Power: near max (GPUs working hard, not idle).
+
+  Unhealthy:
+  - GPU-Util < 30%: bottlenecked elsewhere (data loading? CPU?).
+  - Memory: very low → underutilizing GPU, increase batch.
+  - Power: low → idle, check if training actually started.
+```
+
+**Live monitoring command**:
+
+```bash
+watch -n 1 nvidia-smi
+# or prettier:
+pip install nvitop
+nvitop
+```
+
+`nvitop` gives an htop-like colorful TUI. Highly recommend.
+
+**OOM debugging flowchart**:
+
+```
+  "torch.cuda.OutOfMemoryError"
+           │
+           ▼
+  1. halve micro batch size    ──→ fixed? DONE
+           │
+           │ no
+           ▼
+  2. shorten block_size         ──→ fixed? DONE (if context can be shorter)
+           │
+           │ no
+           ▼
+  3. switch fp32 → bf16          ──→ fixed? DONE
+           │
+           │ no
+           ▼
+  4. enable grad checkpointing   ──→ fixed? DONE (slower, less memory)
+           │
+           │ no
+           ▼
+  5. use FSDP (shard model)      ──→ fixed? DONE
+           │
+           │ no
+           ▼
+  6. use fp8 (if H100+)          ──→ fixed? DONE
+           │
+           │ no
+           ▼
+  7. smaller model. last resort.
+```
+
+Work through them in order. Usually #1 or #3 fixes it.
+
 ## Exercises
 
 1. In Python, before creating a model:

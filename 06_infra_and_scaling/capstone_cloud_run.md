@@ -159,6 +159,123 @@ Write `my-first-cloud-run.md`:
 - ...
 ```
 
+## Visualize this
+
+**Live cloud run dashboard**:
+
+```
+  Your laptop browser                      Cloud GPU (8×H100)
+  ──────────────────                       ────────────────────
+
+  Tab 1: wandb.ai                ◀──────── training curves
+  ┌──────────────────┐                      streamed live
+  │ train/loss       │
+  │  ●                │
+  │   ●●              │
+  │     ●●●           │
+  │        ●●●●●      │
+  │             ●●●●  │
+  └──────────────────┘
+
+  Tab 2: ssh terminal #1                   (tmux window 1)
+  ┌──────────────────┐                     ┌──────────────┐
+  │ iter 1000: loss │ ◀────────────────── │ speedrun.sh  │
+  │ 3.52, time 141ms│                     │  running...  │
+  │ iter 1010: ...  │                     └──────────────┘
+  └──────────────────┘
+
+  Tab 3: ssh terminal #2                   (tmux window 2)
+  ┌──────────────────┐                     ┌──────────────┐
+  │ nvidia-smi       │ ◀────────────────── │ nvidia-smi    │
+  │ GPU 0: 94% 72GB  │                     │ live          │
+  │ GPU 1: 95% 72GB  │                     │ (watch -n 1)  │
+  │ ...               │                     └──────────────┘
+  └──────────────────┘
+
+  Tab 4: Lambda dashboard
+  ┌──────────────────┐
+  │ Instance running  │
+  │ Cost: $62 so far   │
+  │ [TERMINATE] button │
+  └──────────────────┘
+```
+
+Four tabs is all you need to monitor a serious run.
+
+**Cost burn chart (what you'll see)**:
+
+```
+  $
+   │
+   │                                        ●
+  100│                                 ●
+   │                            ●
+  80 │                     ●
+   │              ●
+  60 │        ●               ← pretraining: $60 in 2 hours
+   │   ●
+  40 │
+   │
+  20 │
+   │ ●
+  0  └──────────────────────────────────────── time
+     0h   1h   2h   3h   4h
+
+  Each dot: price at that moment.
+  Linear: you're burning $25/hr steady.
+  Steeper: something went wrong (extra instance, wrong price tier).
+```
+
+**Expected wandb metrics at completion**:
+
+```
+  For nanochat d24 speedrun:
+
+  train/loss (final):       ~2.11
+  val/bpb (final):           ~0.75       ← beats GPT-2 baseline
+  eval/core:                  ~0.258     ← beats 2019 OpenAI GPT-2 (0.2565)
+  eval/mmlu:                   ~0.33
+  eval/gsm8k:                 ~0.10
+  eval/humaneval:             ~0.06
+
+  train/mfu:                   45-52%
+  train/tok_per_sec:          ~55k-70k tok/s (8×H100 with fp8)
+```
+
+**Screenshot checklist for your capstone report**:
+
+```
+  [ ] wandb run page with all curves (pin to 3-4 panels)
+  [ ] final conversation with chat UI (at least 5 turns)
+  [ ] nvidia-smi mid-training (proves you really ran it)
+  [ ] provider billing page showing total cost
+  [ ] terminal output of final eval (MMLU, ARC, etc.)
+  [ ] report.md contents
+  [ ] instance-terminated confirmation page
+```
+
+All of these together = undeniable proof of execution. Worth keeping.
+
+**Success story format**:
+
+```
+  "I trained a GPT-2-grade chatbot from scratch.
+
+   Compute: 8×H100 for 3h 35min = 29 GPU-hours.
+   Cost: $89 on Lambda on-demand.
+   Architecture: Llama-style d24 (1.5B params, 32768 vocab).
+   Data: 41 B tokens from DCLM.
+   Metrics: CORE 0.258, MMLU 33%, GSM8K 10%.
+   Outcome: works as a chatbot, can answer basic questions.
+
+   Link to report: <wandb URL> / <github repo with writeup>
+   Conversation screenshots: attached.
+   Total commands run: `bash runs/speedrun.sh` + `python -m scripts.chat_web`.
+   Total time spent: 5 hours (3.5h training + 1.5h setup/cleanup)."
+```
+
+This is your artifact. Post it. Share it. Put it on your CV.
+
 ## Common pitfalls
 
 - **Forgetting to kill the instance.** I cannot say this enough.

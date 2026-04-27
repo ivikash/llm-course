@@ -129,6 +129,113 @@ FSDP(model, cpu_offload=CPUOffload(offload_params=True))
 
 Slow (CPU-GPU transfer is slow) but can train models that otherwise wouldn't fit at all. Used for extreme cases.
 
+## Visualize this
+
+**DDP vs FSDP (ZeRO-3) vs Tensor Parallelism**:
+
+```
+  DDP (data parallel):
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │ GPU 0         │   │ GPU 1         │   │ GPU 2         │   │ GPU 3         │
+  │ full model   │   │ full model   │   │ full model   │   │ full model   │
+  │ full opt state│   │ full opt state│   │ full opt state│   │ full opt state│
+  │ batch 0       │   │ batch 1       │   │ batch 2       │   │ batch 3       │
+  └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+  Each GPU: has the full model. All-reduces gradients per step.
+
+  FSDP / ZeRO-3 (sharded params + grads + opt state):
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │ GPU 0         │   │ GPU 1         │   │ GPU 2         │   │ GPU 3         │
+  │ 1/4 weights   │   │ 1/4 weights   │   │ 1/4 weights   │   │ 1/4 weights   │
+  │ 1/4 grads     │   │ 1/4 grads     │   │ 1/4 grads     │   │ 1/4 grads     │
+  │ 1/4 opt state │   │ 1/4 opt state │   │ 1/4 opt state │   │ 1/4 opt state │
+  │ batch 0       │   │ batch 1       │   │ batch 2       │   │ batch 3       │
+  └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+  Before each layer: all-gather the 1/4 shards into full layer weights.
+  After backward:    reduce-scatter grads back to 1/4 shards.
+  4× less memory per GPU. More communication.
+
+  Tensor Parallelism (split matmul across GPUs):
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │ GPU 0         │   │ GPU 1         │   │ GPU 2         │   │ GPU 3         │
+  │ half of W₁   │   │ other half W₁│   │ half of W₁   │   │ other half W₁│
+  │ attention:    │   │ attention:   │   │              │   │              │
+  │ heads 0-3     │   │ heads 4-7    │   │ heads 8-11   │   │ heads 12-15  │
+  └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+  Each matmul split across GPUs; all-reduce after each.
+  Very high communication; best within a node (NVLink).
+
+  Pipeline Parallelism (split layers across GPUs):
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │ GPU 0         │   │ GPU 1         │   │ GPU 2         │   │ GPU 3         │
+  │ layers 1-8   │───▶│ layers 9-16  │───▶│ layers 17-24 │───▶│ layers 25-32 │
+  └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+  Each GPU holds a different "slice" of layers.
+  Activations flow forward, gradients flow backward.
+  Bubble of idle time; micro-batching reduces this.
+```
+
+**Which strategy for which model size**:
+
+```
+  Model fits in 1 GPU (+ optimizer state)?
+           │
+           ▼
+     YES → DDP (simple, fast)    e.g. GPT-2-small, Mistral-7B bf16 on A100-80GB
+
+           │
+           ▼
+     NO  → Does it fit across multiple GPUs?
+                │
+                ▼
+          FSDP / ZeRO-3 (shard param/grad/opt)    7B-30B typical
+                │
+                ▼
+          Still OOM? Model too big for sharding alone?
+                │
+                ▼
+          Add tensor parallelism (within a node)
+                │
+                ▼
+          + pipeline parallelism (across nodes)     70B+
+
+  Frontier: 3D parallelism = DP × TP × PP together.
+  E.g. Llama-3 405B uses 8-way TP × 16-way PP × DP across 1000s of GPUs.
+```
+
+**FSDP memory savings (dramatic for AdamW)**:
+
+```
+  1B param model, bf16 mixed precision + AdamW:
+  ──────────────────────────────────────────────
+                      DDP per GPU    FSDP (4 GPUs) per GPU
+  weights (fp32)       4 GB            1 GB (shard)
+  weights (bf16)       2 GB            0.5 GB (shard)
+  gradients            2 GB            0.5 GB (shard)
+  AdamW m (fp32)       4 GB            1 GB (shard)
+  AdamW v (fp32)       4 GB            1 GB (shard)
+  ──────────────────── ────────────   ─────────────────
+  Total:               16 GB           4 GB  ← 4× less!
+
+  → can train models 4× bigger on the same hardware.
+```
+
+**ZeRO stages in one picture**:
+
+```
+  ZeRO-1: shard optimizer state only
+    per GPU: full weights + full grads + 1/N opt state
+
+  ZeRO-2: shard opt state + grads
+    per GPU: full weights + 1/N grads + 1/N opt state
+
+  ZeRO-3 (= FSDP): shard all of it
+    per GPU: 1/N weights + 1/N grads + 1/N opt state
+    (weights gathered just-in-time for each layer)
+```
+
+Bigger ZeRO stage = less memory but more communication.
+
 ## Exercises
 
 1. Compute: for Llama-2-70B with AdamW in bf16 mixed precision, total training memory? (70 × 16 = 1.12 TB. On 8 H100s (640 GB total), needs FSDP ZeRO-3.)

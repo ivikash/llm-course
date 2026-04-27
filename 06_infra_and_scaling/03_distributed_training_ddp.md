@@ -159,6 +159,108 @@ If you don't have Infiniband and are doing multi-node training, set `NCCL_IB_DIS
 
 Same pattern. Look at `scripts/base_train.py` around the init section. It has a bit more infrastructure (per-param-group learning rate, fault tolerance hooks) but the DDP flow is identical to nanoGPT's.
 
+## Visualize this
+
+**DDP: each GPU gets a full model copy**:
+
+```
+  One node, 8 GPUs running DDP:
+
+  ┌─────────────┬─────────────┬─────────────┬─────────────┐
+  │  GPU 0       │  GPU 1       │  GPU 2       │  GPU 3       │
+  │ ┌─────────┐ │ ┌─────────┐ │ ┌─────────┐ │ ┌─────────┐ │
+  │ │ model    │ │ │ model    │ │ │ model    │ │ │ model    │ │
+  │ │ (full)   │ │ │ (full)   │ │ │ (full)   │ │ │ (full)   │ │
+  │ │ copy     │ │ │ copy     │ │ │ copy     │ │ │ copy     │ │
+  │ └─────────┘ │ └─────────┘ │ └─────────┘ │ └─────────┘ │
+  │   batch 0    │   batch 1    │   batch 2    │   batch 3    │
+  ├─────────────┼─────────────┼─────────────┼─────────────┤
+  │  GPU 4       │  GPU 5       │  GPU 6       │  GPU 7       │
+  │   batch 4    │   batch 5    │   batch 6    │   batch 7    │
+  └─────────────┴─────────────┴─────────────┴─────────────┘
+
+  Each step:
+  1. Each GPU runs forward on its own batch (parallel, independent)
+  2. Each GPU runs backward, producing its own gradient copy
+  3. All-reduce: sum gradients across all GPUs, broadcast back
+  4. Each GPU runs optimizer.step on the averaged gradients
+       → weights stay in sync on all GPUs
+```
+
+**The all-reduce operation**:
+
+```
+  Before all-reduce:
+  GPU 0: gradient = [1.2, 0.3, 0.5]
+  GPU 1: gradient = [0.8, 0.1, 0.2]
+  GPU 2: gradient = [1.0, 0.2, 0.3]
+  GPU 3: gradient = [1.4, 0.5, 0.6]
+
+  All-reduce (sum + average):
+    sum = [4.4, 1.1, 1.6]
+    avg = sum / 4 = [1.1, 0.275, 0.4]
+
+  After all-reduce:
+  All GPUs: gradient = [1.1, 0.275, 0.4]   (identical)
+
+  Implemented via ring-allreduce: each GPU sends/receives chunks
+  in a circle for efficient bandwidth usage.
+```
+
+**What launching looks like**:
+
+```bash
+# single-node (torchrun auto-sets environment)
+torchrun --standalone --nproc_per_node=8 train.py
+
+# environment set by torchrun per process:
+#   RANK=0, 1, ..., 7   (global rank)
+#   LOCAL_RANK=0, ..., 7 (rank within node)
+#   WORLD_SIZE=8         (total processes)
+
+# Each process runs its own copy of train.py
+# They auto-synchronize via NCCL backend
+```
+
+**Multi-node (2 nodes, 16 GPUs total)**:
+
+```
+  node A (ip 10.0.0.5):                 node B (ip 10.0.0.6):
+  ┌─────────────────────┐                ┌─────────────────────┐
+  │ GPU 0-7              │  ←─Infiniband─│ GPU 8-15             │
+  │                      │   or Ethernet  │                      │
+  │ ranks 0-7             │               │ ranks 8-15            │
+  └─────────────────────┘                └─────────────────────┘
+
+  Launch on node A (rank 0 acts as master):
+    torchrun --nnodes=2 --node_rank=0 --master_addr=10.0.0.5 --master_port=29500 \
+             --nproc_per_node=8 train.py
+
+  Launch on node B:
+    torchrun --nnodes=2 --node_rank=1 --master_addr=10.0.0.5 --master_port=29500 \
+             --nproc_per_node=8 train.py
+
+  (Run both commands simultaneously. They coordinate over the network.)
+```
+
+**Scaling efficiency (DDP):**
+
+```
+  GPUs   ideal speedup   typical actual   efficiency
+  ────   ─────────────   ──────────────   ──────────
+  1      1×              1×                100%
+  2      2×              1.95×              98%
+  4      4×              3.9×               97%
+  8      8×              7.6×               95%
+  16     16×             14.5×              91%
+  32     32×             28×                88%
+  64     64×             52×                81%
+  128    128×            95×                74%
+
+  Larger scales lose efficiency due to communication overhead.
+  Beyond ~128 GPUs, more sophisticated parallelism helps (Module 6.4).
+```
+
 ## Exercises
 
 1. If you have 2+ GPUs, launch nanoGPT's Shakespeare training with `torchrun --nproc_per_node=2 train.py config/train_shakespeare_char.py`. Note wall time.

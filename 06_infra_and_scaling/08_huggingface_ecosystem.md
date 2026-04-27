@@ -192,6 +192,143 @@ Then add `README.md`, put weights in a `pytorch_model.bin` or `model.safetensors
 
 People will discover it, cite it, use it. This is how open-source ML spreads.
 
+## Visualize this
+
+**The HuggingFace Hub as a "GitHub for models"**:
+
+```
+  https://huggingface.co/models
+  ┌───────────────────────────────────────────────┐
+  │ Search:  [llama-3]                              │
+  ├───────────────────────────────────────────────┤
+  │                                                 │
+  │  meta-llama/Meta-Llama-3-70B                    │
+  │     downloads: 14M, likes: 3.2k                  │
+  │     Tags: text-generation, llama-3, en           │
+  │                                                 │
+  │  meta-llama/Llama-3.1-8B-Instruct               │
+  │     downloads: 8.5M, likes: 5.1k                 │
+  │                                                 │
+  │  NousResearch/Meta-Llama-3-8B                    │
+  │     (community mirror, no gated access)         │
+  │                                                 │
+  │  unsloth/llama-3-8b-bnb-4bit                     │
+  │     (quantized version for low VRAM)            │
+  └───────────────────────────────────────────────┘
+```
+
+Every popular model has: original, quantized versions, community forks, fine-tunes.
+
+**Three-line model loading**:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-v0.1", torch_dtype=torch.bfloat16, device_map="auto"
+)
+
+# Downloads weights (~14 GB), loads to GPU automatically.
+# Works for 1000s of models.
+```
+
+That's the magic of HuggingFace.
+
+**The ecosystem, diagram**:
+
+```
+                HuggingFace Ecosystem
+  ┌─────────────────────────────────────────────────┐
+  │                                                  │
+  │  ┌────────────────┐                             │
+  │  │   HUB           │ ← models, datasets, demos   │
+  │  │ huggingface.co  │   (the storage)            │
+  │  └───────┬─────────┘                             │
+  │          │                                        │
+  │  ┌───────┴─────────┬────────────┬─────────────┐ │
+  │  │                 │            │             │ │
+  │  ▼                 ▼            ▼             ▼ │
+  │ transformers    datasets    tokenizers    diffusers│
+  │ (load models)   (load data) (fast BPE)    (diffusion)│
+  │                                                  │
+  │  ┌──────────────┬────────────┬────────────┐    │
+  │  │ accelerate   │ peft       │ trl        │    │
+  │  │ (DDP/FSDP)   │ (LoRA)     │ (SFT/DPO)  │    │
+  │  │                           │            │    │
+  │  │ Write code once, works distributed.    │    │
+  │  └──────────────┴────────────┴────────────┘    │
+  │                                                  │
+  │  Spaces (hosted demos):                          │
+  │    run any model in a browser, free              │
+  │                                                  │
+  └─────────────────────────────────────────────────┘
+```
+
+**LoRA: cheap fine-tuning, visually**:
+
+```
+  Full fine-tuning of Llama-7B:
+    ALL 7B params trained.
+    Memory: ~112 GB (doesn't fit on 1 GPU).
+
+  LoRA fine-tuning:
+    Freeze base weights.
+    Add small "adapter" matrices: A (r × d) and B (d × r),  r=8 typically.
+    Forward:  output = W₀·x + (BA)·x    ← BA is low-rank update to W₀
+
+    Only A and B are trained. For Llama-7B:
+      Trainable params: ~4M   (0.06% of total!)
+      Memory: ~2 GB extra    ← fits easily on 1 GPU
+      Quality: nearly matches full fine-tune for most tasks
+```
+
+**Typical fine-tuning pipeline with PEFT**:
+
+```python
+from transformers import AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer
+
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8B")
+
+lora_config = LoraConfig(
+    r=8, lora_alpha=16, target_modules=["q_proj", "v_proj"], lora_dropout=0.05,
+)
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 4,194,304 || all params: 8,030,261,248 || trainable%: 0.05%
+
+trainer = SFTTrainer(
+    model=model, train_dataset=my_dataset, tokenizer=tokenizer, args=...
+)
+trainer.train()
+
+model.save_pretrained("my-llama-lora")
+# Only 16 MB saved (just the adapter). Shareable.
+```
+
+Llama + LoRA + SmolTalk = your own personalized chat model in 2 hours on a single GPU.
+
+**Why HuggingFace won**:
+
+```
+  Before HF:                    After HF:
+  ─────────                     ─────────
+  "Download model X."           `AutoModel.from_pretrained("X")`
+      │                            │
+      │ Figure out their            │ Done. Three lines.
+      │ framework (TF/JAX).          │
+      │ Port to PyTorch.              │
+      │ Figure out their tokenizer.    │
+      │ Figure out their config.       │
+      │ Write custom loading code.      │
+      │                                │
+      │ 2-5 days of work.              │ 30 seconds.
+```
+
+That's the value proposition. Standardization at massive scale.
+
 ## Exercises
 
 1. Create a free HF account. Browse the top 5 models by downloads. Read their model cards.

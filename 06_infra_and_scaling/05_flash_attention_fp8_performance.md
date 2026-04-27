@@ -148,6 +148,105 @@ You don't need to write Triton for this course. But you should know it exists an
 
 nanochat logs all of these to wandb.
 
+## Visualize this
+
+**Flash Attention: the "don't materialize the T×T matrix" trick**:
+
+```
+  Naive attention:
+  Q  ──→  Q @ K^T  ──→  softmax  ──→  @ V  ──→  output
+          ↑                      ↑
+          (T, T) matrix       live in HBM (slow)
+
+  For T=8192, fp16:
+    8192 × 8192 × 2 bytes = 128 MB per head, per batch, per layer
+    With 32 heads, 32 layers: 4 GB just for scores.
+    Moving this to/from HBM is the bottleneck.
+
+  Flash Attention:
+  Tile Q into blocks of 64-128 rows.
+  Tile K, V into blocks too.
+  For each Q block:
+    Load it into SRAM (on-chip, fast)
+    Iterate over K, V blocks, accumulating partial attention outputs
+    Never materialize the full T×T scores matrix
+
+  Result: same math, 2-4× faster, much less HBM traffic.
+```
+
+**Memory hierarchy on an H100**:
+
+```
+  ┌──────────────────────────────────┐
+  │ Registers (per SM)                │  ~64 KB, ~500 TB/s - fastest
+  ├──────────────────────────────────┤
+  │ SRAM / L1 cache (per SM)          │  ~256 KB, ~20 TB/s
+  ├──────────────────────────────────┤
+  │ L2 cache (shared)                 │  ~50 MB, ~10 TB/s
+  ├──────────────────────────────────┤
+  │ HBM (VRAM)                        │  80 GB, ~3 TB/s
+  ├──────────────────────────────────┤
+  │ CPU RAM (via PCIe)                │  TBs, ~100 GB/s - 30× slower
+  └──────────────────────────────────┘
+
+  Flash Attention's insight: keep working data in SRAM, minimize HBM trips.
+  This is the fundamental optimization in modern kernel design.
+```
+
+**fp8 speedup landscape**:
+
+```
+                   H100 peak TFLOPS (matmul)
+  ──────────────────────────────────────────
+  fp32                  67 TFLOPS
+  tf32                 495 TFLOPS
+  fp16 / bf16          989 TFLOPS  ← today's common default
+  fp8 dense            1979 TFLOPS ← 2× over bf16
+  fp8 sparse           3958 TFLOPS
+
+  For a 1T-FLOP training step:
+    bf16:  1.0 s
+    fp8:    0.5 s
+  Halving training time → halving cost.
+```
+
+**nanochat's fp8 in simple terms**:
+
+```
+  standard bf16 matmul:
+    A (bf16) @ B (bf16) → C (bf16)
+
+  nanochat's fp8 matmul:
+    1. compute scale_A = max(|A|)          (one pass over A)
+    2. compute scale_B = max(|B|)          (one pass over B)
+    3. quantize: A_fp8 = (A / scale_A) × 448     (448 = fp8_e4m3 max)
+    4. quantize: B_fp8 = (B / scale_B) × 448
+    5. matmul in fp8: C_fp8 = A_fp8 @ B_fp8 (2× faster)
+    6. dequantize: C = C_fp8 × (scale_A × scale_B / 448²)
+
+  Step 1-5 all happen on the GPU in one fused kernel.
+  About 25-30% end-to-end speedup vs bf16.
+```
+
+**MFU (Model FLOPs Utilization) - the metric to watch**:
+
+```
+  MFU = achieved_FLOPs / peak_theoretical_FLOPs
+
+  Example:
+    H100 bf16 peak:  989 TFLOPS
+    Your run:        450 TFLOPS measured
+    MFU:             450 / 989 = 0.46 = 46%
+
+  Typical MFU on H100 for LLM training:
+    30-40%: okay, probably data-loading bottleneck or small batch
+    40-55%: good, well-tuned
+    55-65%: great, heavy optimization (fp8, flash attn)
+    65%+:   exceptional, custom kernels
+```
+
+MFU is free to measure and gives immediate diagnosis. Always log it.
+
 ## Exercises
 
 1. Compare speed of `F.scaled_dot_product_attention` vs hand-rolled attention:

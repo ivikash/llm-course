@@ -157,6 +157,140 @@ Countermeasures:
 - **Set timeouts**: on Lambda, you can set auto-termination.
 - **Calendar reminder** to check daily.
 
+## Visualize this
+
+**Provider price comparison (2026)**:
+
+```
+  8× H100 80GB for ~1 hour:
+
+  Provider              On-demand    Spot/Community
+  ────────────────────  ───────────  ──────────────
+  Lambda Labs            $22/hr       $12/hr
+  Runpod                 $18/hr       $10/hr
+  Vast.ai (peer-to-peer) $14/hr       $8/hr
+  Modal (serverless)     $25/hr       n/a (per-second)
+  CoreWeave              $25/hr       $15/hr
+  AWS (p5.48xlarge)      $98/hr       $45/hr   (spot)
+  GCP (a3-highgpu-8g)    $88/hr       $40/hr
+  Azure (ND96is h100)    $90/hr       -
+
+  Typical cost for nanochat speedrun (3.5 hours):
+    Lambda on-demand:   $77
+    Lambda spot:         $42
+    Runpod spot:         $35
+    Vast.ai cheapest:    $28
+    AWS on-demand:       $343   ← 5× more expensive
+```
+
+For personal learning: hobbyist providers (Lambda, Runpod, Vast) win by a huge margin. Enterprises use AWS/GCP for compliance and SLAs.
+
+**SageMaker: what you're actually paying for**:
+
+```
+  SageMaker Training Job price = EC2 price + "SageMaker premium" (~25-30%)
+
+  Example: p4d.24xlarge (8× A100 40GB)
+    EC2 on-demand:           $32.77/hr
+    SageMaker training:      $40.96/hr  (~25% markup)
+
+  You get in return:
+  ✓ Managed container (no OS setup)
+  ✓ Automatic data loading from S3
+  ✓ Instance auto-termination when training ends
+  ✓ Spot instance management
+  ✓ Hyperparameter tuning service
+  ✓ Model registry
+  ✓ Metric logging (built-in wandb-lite)
+  ✓ IAM, VPC, compliance
+
+  For a solo researcher: overkill. Use Lambda.
+  For a regulated enterprise: probably worth the markup.
+```
+
+**Cloud workflow (the typical session)**:
+
+```
+  local machine                              cloud instance
+  ──────────────                              ────────────────
+                                              
+  browser → "launch 8xH100 at Lambda"
+                                              instance boots (~2 min)
+                                              
+  get SSH command
+  ssh -L 8000:localhost:8000 ubuntu@ip   ───▶  terminal session
+                                              
+                                              $ tmux new -s train
+                                              $ git clone nanochat
+                                              $ bash runs/speedrun.sh
+                                              [training starts, ~3.5h]
+                                              
+  [you go live your life, check occasionally]
+                                              
+  browser → wandb.ai/my-run        ───▶   live dashboard
+                                              
+  [training done]                              
+                                              $ python -m scripts.chat_web
+                                              [starts server on :8000]
+  
+  browser → localhost:8000         ───▶   chat UI
+                                              (port forwarded via SSH)
+  
+  scp model.pt local:             ◀───▶   model downloaded
+                                              
+  browser → Lambda dashboard → Terminate  ⚠ MUST do this
+                                              instance stops billing
+```
+
+**Survival checklist for any cloud session**:
+
+```
+  before starting:
+    [ ] spending alert set at $100-200
+    [ ] SSH key ready locally
+    [ ] project folder prepared to upload
+    [ ] wandb API key in env vars
+    [ ] planned session time (so you don't start at night and forget)
+
+  during:
+    [ ] tmux (so SSH drop doesn't kill training)
+    [ ] monitor wandb dashboard
+    [ ] save checkpoints often
+
+  at end:
+    [ ] scp artifacts you want
+    [ ] verify "downloaded correctly" (md5sum)
+    [ ] TERMINATE INSTANCE (don't just "stop" - some providers still bill)
+    [ ] verify the billing page shows $0/hr
+    [ ] screenshot the run for proof
+```
+
+**What the SageMaker script looks like (for awareness)**:
+
+```python
+from sagemaker.pytorch import PyTorch
+
+estimator = PyTorch(
+    entry_point='train.py',
+    source_dir='./my_project',
+    role='arn:aws:iam::12345:role/SageMakerRole',
+    instance_count=1,
+    instance_type='ml.p4d.24xlarge',  # 8× A100 40GB
+    framework_version='2.1',
+    py_version='py310',
+    hyperparameters={'epochs': 3, 'batch_size': 32},
+    output_path='s3://my-bucket/models/',
+    use_spot_instances=True,   # ~70% cheaper
+    max_wait=14400,
+    max_run=10800,
+)
+
+estimator.fit({'train': 's3://my-bucket/train-data/'})
+# Monitors via CloudWatch. Instance auto-terminates when done.
+```
+
+Elegant when it works. Fiddly when it doesn't.
+
 ## Exercises
 
 1. Sign up on Lambda Labs (free), don't launch anything yet. Browse the instance types and prices.

@@ -84,6 +84,112 @@ Papers and blog posts usually report #1 and #2 for training.
 - **Module 4 capstone**: any GPU (RTX 3060+ works). On a 4090, Shakespeare trains in 2 minutes.
 - **Module 5 capstone**: cloud 8xH100 for the speedrun, or run tiny locally for months. Module 6 Lesson 6 covers cloud.
 
+## Visualize this
+
+**CPU vs GPU core counts**:
+
+```
+  Modern CPU (Intel i9, 24 cores):
+
+  ┌────┬────┬────┬────┐
+  │ 1  │ 2  │ 3  │ 4  │   each core: complex, fast (~5 GHz)
+  ├────┼────┼────┼────┤   can handle any branching logic
+  │ 5  │ 6  │ 7  │ 8  │   great at sequential work
+  ├────┼────┼────┼────┤   mediocre at parallel numeric
+  │ 9  │ 10 │ 11 │ 12 │
+  ├────┼────┼────┼────┤
+  │ 13 │ 14 │ 15 │ 16 │
+  └────┴────┴────┴────┘
+   ...
+   24 cores total
+
+  Modern GPU (H100, 16,896 CUDA cores):
+
+  ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │   each core: simple, slower (~1.5 GHz)
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │   can only do simple math
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │   MUST do same thing in parallel
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │   incredible for matmul
+  │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │
+  ...
+  16,896 cores, organized in 132 Streaming Multiprocessors
+  plus 528 Tensor Cores for matmul specifically
+```
+
+CPU ≈ 24 smart workers. GPU ≈ 17,000 simple workers. For matmul, the simple workers win by 1000×.
+
+**NVIDIA generation progression**:
+
+```
+  Year   Generation   Flagship    bf16 TFLOPS   VRAM    Approx $/hr cloud
+  ────   ───────────  ─────────   ───────────   ─────   ──────────────────
+  2016   Pascal        P100        19             16GB   $1/hr (legacy)
+  2017   Volta         V100        125            16/32GB $2/hr
+  2020   Ampere        A100        312            40/80GB $1-3/hr
+  2022   Hopper        H100        989            80GB    $2-4/hr
+  2022   Hopper        H200        989           141GB   $3-5/hr
+  2024   Blackwell     B200        ~2250         192GB   $4-8/hr
+  2024   Blackwell     GB200       ~4500         384GB   $10+/hr
+
+  GPT-2 (2019): trained on V100s for ~1 week.
+  GPT-3 (2020): trained on ~10k V100s for ~34 days.
+  GPT-4 (2023): rumored ~25,000 A100s for ~100 days.
+  GPT-5: undisclosed, likely tens of thousands of H100/B200.
+```
+
+**Anatomy of an H100**:
+
+```
+  ┌──────────────────────────────────────┐
+  │         H100 GPU (80GB SXM5)          │
+  │                                        │
+  │  132 Streaming Multiprocessors (SMs)   │
+  │  ┌──────┬──────┬──────┬──────┬──────┐ │
+  │  │ SM 1 │ SM 2 │ SM 3 │ SM 4 │ ...  │ │
+  │  ├──────┼──────┼──────┼──────┼──────┤ │
+  │  │ SM 5 │ SM 6 │ SM 7 │ SM 8 │ ...  │ │
+  │  └──────┴──────┴──────┴──────┴──────┘ │
+  │                                        │
+  │  Each SM has:                          │
+  │   - 128 CUDA cores                     │
+  │   - 4 Tensor Cores (bf16, fp8)         │
+  │   - 256 KB register file               │
+  │   - 256 KB L1 cache / shared memory     │
+  │                                        │
+  │  HBM3 (80 GB):  VRAM                   │
+  │   - 3 TB/s bandwidth                   │
+  │                                        │
+  │  NVLink 4: 900 GB/s to other GPUs       │
+  │  PCIe 5:   128 GB/s to CPU              │
+  └──────────────────────────────────────┘
+```
+
+The Tensor Cores are where 95% of LLM compute happens.
+
+**CPU matmul vs GPU matmul (run this yourself)**:
+
+```python
+import torch, time
+
+a = torch.randn(4096, 4096)
+b = torch.randn(4096, 4096)
+
+t = time.time()
+c = a @ b
+print(f"CPU: {time.time()-t:.2f}s")    # ~2-5 seconds
+
+if torch.cuda.is_available():
+    a, b = a.cuda(), b.cuda()
+    torch.cuda.synchronize()
+    t = time.time()
+    c = a @ b
+    torch.cuda.synchronize()
+    print(f"GPU: {(time.time()-t)*1000:.2f}ms")   # ~5-50 ms
+```
+
+Expect ~100-500× speedup. Feel the difference.
+
 ## Exercises
 
 1. If you have a GPU, run `nvidia-smi`. Identify: GPU name, VRAM total/used, CUDA version.

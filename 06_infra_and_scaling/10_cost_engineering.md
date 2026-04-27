@@ -120,6 +120,144 @@ Sometimes the right answer is **don't train**. Options:
 
 Training is expensive in wall time, money, and opportunity. Often the right move for learning, rarely the right move for business unless you have specific needs (domain knowledge, privacy, cost at scale, IP).
 
+## Visualize this
+
+**Cost breakdown of training runs**:
+
+```
+  nanochat speedrun (d24, 3.5h on 8xH100):
+  ┌────────────────────────────────────┐
+  │ Pretraining (2h)    ████████████████│ 75%
+  │ SFT (20 min)        ████            │ 10%
+  │ Evals (45 min)      ████████         │ 12%
+  │ Infrastructure       █              │ 3%
+  └────────────────────────────────────┘
+  Total: ~$80 (on-demand) / ~$25 (spot)
+
+  GPT-2 reproduction (OpenWebText, 4 days on 8xA100):
+  Pretraining: ~$2,500 on-demand
+  nanoGPT (baseline): 4 days → $1,500 spot
+
+  GPT-3 (2020, estimated): ~$4-10M on-premise hardware
+  GPT-4 (2023, rumored): ~$60-100M
+  Llama-3-405B (2024): public estimate ~$100M+
+```
+
+**The $/FLOP race**:
+
+```
+  Training $/1e18 FLOPs (rough estimates):
+
+  2019 (GPT-2 era, V100):           ~$200
+  2020 (GPT-3 era, V100):            ~$50
+  2022 (Chinchilla era, A100):        ~$20
+  2024 (Llama-3 era, H100 + fp8):    ~$5
+  2025+ (Blackwell):                   ~$2
+
+  → Same model 100× cheaper to train than 5 years ago.
+  → Why open-source LLMs exploded 2023-2026.
+```
+
+**Inference cost landscape (2026)**:
+
+```
+  Cost per 1M output tokens (API prices):
+
+  GPT-4 (original)               $60
+  GPT-4 Turbo                    $30
+  Claude 3.5 Sonnet              $15
+  GPT-4o                          $10
+  Gemini 1.5 Pro                 $10
+  GPT-4o mini                    $0.60
+  Claude 3.5 Haiku                $5
+  Llama-3.1-70B (via providers)  $0.90
+  Llama-3.1-8B                   $0.06
+
+  Self-hosted Llama-3.1-8B on A100 (batched):
+    ~$0.02/M (if GPU is 80% utilized)
+    ~$0.20/M (at low utilization)
+
+  Conclusion: for high volume, self-host. For low volume, API.
+```
+
+**A simple decision tree**:
+
+```
+  Do I need per-query < 100 ms latency?
+           │
+     YES ──▶─── Do I have reliable 60%+ GPU utilization?
+                      │
+                 YES ──▶─── Self-host (cheapest)
+                      │
+                 NO  ──▶─── API + caching (simpler)
+           │
+     NO  ──▶─── API calls (simplest)
+
+  Am I doing more than 1M queries/day?
+           │
+     YES ──▶─── Seriously consider self-host
+           │
+     NO  ──▶─── API is fine
+```
+
+**The "hidden costs" of cloud you forget**:
+
+```
+  1. Storage (EBS): $0.10/GB/month
+     Your 100 GB dataset × 12 months = $120
+
+  2. Egress: $0.09/GB typical
+     Downloading your 20 GB trained model: $1.80
+     Doing that 100 times: $180
+     (CRAZY: inbound is usually free, outbound charges kill you)
+
+  3. Elastic IPs: $0.005/hr if unattached
+     Forget to release it: $3.60/month forever
+
+  4. Reserved capacity / commitments: "save 30%" if commit 1 year
+     If you don't actually need it: just a way to waste money
+
+  5. CloudWatch, Logs, Monitoring:
+     Not much, but surprising
+
+  Rule: audit billing monthly. Delete what you don't need.
+```
+
+**Scaling laws applied to budget planning**:
+
+```
+  Question: "$1000 budget for an LLM experiment. What can I do?"
+
+  At Lambda 8xH100 spot ($15/hr) = 67 hours of compute.
+  At ~4e19 FLOPs/hour (fp8), that's ~2.7e21 FLOPs total.
+
+  Chinchilla-optimal: N * D = 2.7e21 / 6 = 4.5e20 token-params.
+  Sqrt: N ≈ 21B params, D ≈ 21 × 20 = 420B tokens.
+
+  Reality: that's too many tokens to tokenize/load in 67 hours.
+  Practical: d20-d24 nanochat (0.8B-1.5B params), 20-30B tokens.
+  Speedrun-style: this is a GPT-2-grade model.
+
+  Translation: $1000 = one GPT-2 reproduction.
+```
+
+**Watch your money**:
+
+```bash
+# Provider dashboard (check daily):
+# - instances running?
+# - hourly burn rate
+# - monthly projection
+#
+# Set alerts:
+# - $50 / week soft alert
+# - $200 / week hard alert
+# - $500 / month email
+#
+# If the number looks wrong, investigate NOW.
+# Many a weekend vacation has been spent paying for forgotten GPUs.
+```
+
 ## Exercises
 
 1. Compute training cost for:
