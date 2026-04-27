@@ -178,6 +178,12 @@ Covered in Module 9:
 
 **The 25 papers visualized as a tree of influence**:
 
+```viz
+{"viz": "paper_tree"}
+```
+
+Click any node to see its one-line idea and a link to read the paper.
+
 ```
                     Attention Is All You Need (2017)
                               │

@@ -180,6 +180,12 @@ Most startups rent. Most big labs have a mix.
 
 **A team's compute budget pie**:
 
+```viz
+{"viz": "compute_allocator"}
+```
+
+Slide the team's total GPU-hours and the allocation across project types. Watch the stacked bar rebalance. A real management tool — keep under 100% (need buffer for surprises).
+
 ```
   Quarterly compute for a 5-person team (17,280 GPU-hours on 8×H100):
 
