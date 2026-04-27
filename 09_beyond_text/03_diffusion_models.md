@@ -159,6 +159,14 @@ Diffusion dominates in 2022-2025. Flow matching may surpass it.
 
 **Diffusion as: noise → image**:
 
+```viz
+{"viz": "diffusion_steps"}
+```
+
+Start at step=0 (clean image of a cat 🐱). Press **▶ Forward**: watch noise progressively overwhelm the image over 1000 steps. At step=1000, pure noise. Then press **◀ Reverse**: the trained model would remove noise step by step to generate a new image.
+
+This is literally what Stable Diffusion does at inference — but our animation just interpolates for illustration; real reverse requires a trained denoiser.
+
 ```
   t=1000 (pure noise)                              t=0 (clean image)
   ┌──────────┐                                     ┌──────────┐

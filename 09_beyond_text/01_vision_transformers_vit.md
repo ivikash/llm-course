@@ -100,6 +100,12 @@ CNN architectures are still widely deployed but research has shifted to transfor
 
 **An image as patches, pictorially**:
 
+```viz
+{"viz": "image_patches"}
+```
+
+Slide the patch size. Watch the image break into grid of tiles. Each tile becomes one "token" for the transformer. A 224×224 image with 16×16 patches = 14×14 = 196 tokens — same as a 196-word sentence. Same transformer processes both.
+
 ```
   Original image (224 × 224 pixels, RGB):
   ┌────────────────────────────────────────┐

@@ -167,6 +167,12 @@ Encoder-decoder transformer, same as 2017 paper, applied to audio→text.
 
 **Mel-spectrogram: audio as an "image"**:
 
+```viz
+{"viz": "mel_spectrogram"}
+```
+
+Switch audio types. See how Whisper turns sound into a 2D picture: horizontal = time, vertical = frequency, color = energy. A chirp becomes a diagonal line. Speech has harmonic structure. Music has persistent bass + melody. Whisper's transformer processes this picture.
+
 ```
   Audio (1D over time):
   ╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲
