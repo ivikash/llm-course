@@ -189,6 +189,14 @@ wandb is default for a reason - best free tier and best UX. Every ML team I know
 
 ## Visualize this
 
+**A simulated live wandb dashboard:**
+
+```viz
+{"viz": "wandb_dashboard"}
+```
+
+Press **▶ Start training**. Watch all 4 panels update per step: train loss plummeting, val bpb (every 500 steps), grad norm hovering near 1.0, MFU ramping and steadying at ~45%. Change the speed slider. This is the exact dashboard you'll live in during real runs.
+
 **What a wandb project looks like**:
 
 ```

@@ -150,6 +150,14 @@ nanochat logs all of these to wandb.
 
 ## Visualize this
 
+**Flash Attention in action — see the memory savings:**
+
+```viz
+{"viz": "flash_attention"}
+```
+
+Left: naive attention keeps the full T×T matrix in HBM at once. Right: Flash Attention tiles it in small B×B chunks that fit in on-chip SRAM. Press **Play** — the green tile sweeps through, reusing the tiny scratch space. Same math. Much less memory. 2-4× faster in practice.
+
 **Flash Attention: the "don't materialize the T×T matrix" trick**:
 
 ```
