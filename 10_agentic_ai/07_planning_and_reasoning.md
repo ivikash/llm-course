@@ -380,6 +380,12 @@ Use reasoning when the task is hard AND correctness matters AND latency is toler
 
 **o1/R1-style reasoning (the 2024-25 unlock)**:
 
+```viz
+{"viz": "reasoning_trace"}
+```
+
+Press **Run both**. Left: regular model streams an answer confidently but wrong. Right: reasoning model thinks longer, backtracks, catches its own mistake, gets it right. 5-10× more tokens for a hard problem — worth it when correctness matters.
+
 ```
   Old models:
     Input: problem

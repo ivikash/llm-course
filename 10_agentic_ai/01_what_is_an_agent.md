@@ -278,6 +278,12 @@ while True:
 
 **The ReAct pattern, visually**:
 
+```viz
+{"viz": "agent_loop"}
+```
+
+Press **Next step** repeatedly. Watch a real agent loop unfold: user question → thought → tool call → observation → thought → ... → final answer. Every agent in 2026 works this way.
+
 ```
   User: "What's the weather in Paris?"
        │

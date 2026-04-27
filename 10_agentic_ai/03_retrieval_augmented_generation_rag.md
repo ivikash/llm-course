@@ -142,6 +142,12 @@ That's the RAG prompt. Send to LLM. Get answer.
 
 **The full RAG pipeline**:
 
+```viz
+{"viz": "rag_pipeline"}
+```
+
+Press **Run**. Watch the 6 stages animate: embed query → similarity search → top-k retrieval → prompt assembly → LLM generation. Try editing the query. Change k. See how the retrieved chunks change.
+
 ```
   ┌──────────────────┐
   │  documents        │
