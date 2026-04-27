@@ -174,6 +174,147 @@ Covered in Module 9:
 
 ---
 
+## Visualize this
+
+**The 25 papers visualized as a tree of influence**:
+
+```
+                    Attention Is All You Need (2017)
+                              │
+            ┌─────────────────┼─────────────────┐
+            │                 │                 │
+     GPT-1 (2018)       BERT (2018)      T5 (2019)
+            │                 │                 │
+     GPT-2 (2019)             │                 │
+            │                 │                 │
+     GPT-3 (2020)    ──→ Scaling Laws (Kaplan 2020)
+            │                 │
+            │        ──→ Chinchilla (2022)    ← correction
+            │
+     InstructGPT (2022) ──→ ChatGPT
+            │
+            ├── DPO (2023)
+            └── RLHF variants
+                    │
+                    ▼
+     [Open-source wave 2023]
+            │
+            ├── LLaMA (2023)
+            ├── Mistral 7B (2023)
+            └── Llama-2 / Llama-3 (2023-2024)
+                    │
+                    ├── Mixtral 8x7B (MoE)
+                    └── DeepSeek-V3 (2024)
+                                │
+                                └── DeepSeek-R1 (2025, reasoning)
+                                        │
+                                        └── OpenAI o1 / o3 (2024-25)
+
+  Architecture innovations (woven throughout):
+      RoPE (2021) → Llama
+      FlashAttention (2022) → everyone
+      SwiGLU → Llama
+      GQA → Llama-2-70B, Llama-3
+
+  Alternative paths:
+      Mamba / SSM (2023) - transformer alternatives
+      Constitutional AI (Anthropic 2022) - alignment variant
+```
+
+**Each paper's "elevator pitch"**:
+
+```
+  Paper                     One-line core contribution
+  ────────────────────────  ──────────────────────────────────────
+  Attention (2017)          Attention + MLP → transformer
+  GPT-1 (2018)              Pretrain + finetune paradigm for NLP
+  GPT-2 (2019)              Scale → zero-shot task performance
+  GPT-3 (2020)              Scale → few-shot in-context learning
+  Kaplan (2020)             Loss = power law in N, D, C
+  Chinchilla (2022)         Scale N and D equally, ~20 tokens/param
+  InstructGPT (2022)        SFT + RLHF = much better chat
+  LLaMA (2023)              Modern architecture + open weights
+  FlashAttention (2022)     Same math, much faster via tiling
+  Mixtral (2024)            MoE: big capacity, cheap inference
+  DPO (2023)                Preference tuning without RL
+  DeepSeek-R1 (2025)        GRPO: verifiable rewards → reasoning
+  Mamba (2023)              State-space alternative to attention
+  CoT (Wei 2022)            "Let's think step by step" helps a lot
+  The Bitter Lesson (2019)  Scale-with-compute beats human cleverness
+```
+
+**The "reading plan" by week**:
+
+```
+  Month 1 (foundations):
+    Week 1: Attention + GPT-1
+    Week 2: GPT-2 + GPT-3
+    Week 3: Kaplan + Chinchilla (scaling laws)
+    Week 4: The Bitter Lesson (philosophy)
+
+  Month 2 (modern LLMs):
+    Week 5: LLaMA 1 + 2
+    Week 6: Mistral + Mixtral
+    Week 7: RoPE + FlashAttention
+    Week 8: GQA + SwiGLU
+
+  Month 3 (alignment):
+    Week 9: InstructGPT (RLHF)
+    Week 10: DPO
+    Week 11: DeepSeek-R1 (GRPO)
+    Week 12: Constitutional AI
+
+  Month 4 (frontiers):
+    Week 13: Chain-of-Thought
+    Week 14: RAG
+    Week 15: Mamba
+    Week 16: your own interest area
+
+  After 4 months: solid base of ~20 papers read carefully.
+  You've got a foundation stronger than most people working in AI.
+```
+
+**Where to find curation**:
+
+```
+  Daily:    Twitter/X (follow 20 curators)
+            @karpathy, @jxmnop, @_jasonwei, @srush_nlp, @jackclarkSF
+
+  Weekly:   - Interconnects (Nathan Lambert's newsletter)
+            - Jack Clark's Import AI
+            - Latent Space podcast
+
+  Monthly:  - lifearchitect.ai/papers  (curated big-picture)
+            - latent.space 2025 papers list
+
+  Per paper:  https://paperswithcode.com  (finds the code)
+             https://alphaxiv.org          (community comments)
+             https://huggingface.co/papers (daily new, voted)
+```
+
+**A paper's half-life**:
+
+```
+  "Foundational" papers (indefinite relevance):
+    Attention Is All You Need
+    Scaling Laws, Chinchilla
+    The Bitter Lesson
+
+  "Methodology" papers (~3-5 years):
+    LoRA, RoPE, FlashAttention
+    InstructGPT, DPO, GRPO
+
+  "Benchmark" papers (~1-2 years):
+    MMLU, HumanEval, GSM8K
+    Superseded as models improve
+
+  "System" papers (~6 months):
+    GPT-4 technical report, Claude system card
+    Obsolete as next version ships
+```
+
+Invest reading time proportional to half-life. Read foundations; skim systems.
+
 ## Your reading plan
 
 ### Week 1-2 (foundations)

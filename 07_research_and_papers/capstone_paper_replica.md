@@ -117,6 +117,129 @@ Write `my_reproduction.md` with sections:
 - Share with peers for feedback.
 - Post publicly.
 
+## Visualize this
+
+**The reproduction quality ladder**:
+
+```
+  Level 1 (beginner):
+  Took the paper's released code, ran it, got similar numbers.
+  ─ Effort: 1-2 days.
+  ─ Learning: low.
+  ─ Value: you verified the code works.
+
+  Level 2 (your capstone target):
+  Reimplemented key result in nanoGPT/nanochat from scratch,
+  got within 2× of paper's number, wrote up differences.
+  ─ Effort: 1-4 weeks.
+  ─ Learning: high.
+  ─ Value: deep understanding of one technique.
+
+  Level 3 (serious):
+  Reimplemented, found a bug or extension, contributed back.
+  ─ Effort: 1-3 months.
+  ─ Learning: deep.
+  ─ Value: made the field better.
+
+  Level 4 (research contribution):
+  Extended the paper's method into a new one, published yourself.
+  ─ Effort: 6+ months.
+  ─ Learning: you're a researcher now.
+```
+
+**A Gantt chart of a good reproduction**:
+
+```
+  Week 1  │ understand ████████████
+  Week 2  │ implement           ████████
+  Week 3  │ debug                     ██████████
+  Week 4  │ experiments                        ████████
+  Week 5  │ analyze + writeup                          ██████████
+          └──────────────────────────────────────────────────────
+
+  Scoped properly = 5 weeks.
+  Over-scoped = 3-6 months (one of those "I'll finish next month" projects).
+
+  Limit scope ruthlessly. One figure. One comparison. One claim.
+```
+
+**Expected output artifacts**:
+
+```
+  After completing the capstone, you should have:
+
+  1. GitHub repo:
+     ├── README.md             (project overview)
+     ├── code/                 (your implementation)
+     ├── results/
+     │   ├── my_figure.png     (your reproduction of paper's figure)
+     │   └── original.png       (their figure for comparison)
+     └── writeup.md             (the report)
+
+  2. Published blog post or GitHub README (with figures embedded).
+
+  3. Tagged the authors on Twitter/X or email.
+
+  4. Maybe: a reply from the authors acknowledging your work.
+
+  This is a real, portable artifact. Show it in every interview.
+```
+
+**What good reproduction writeups look like**:
+
+```
+  Good examples to imitate:
+  - Dao's reproduction of attention variants: github.com/Dao-AILab
+  - Karpathy's "Let's build GPT from scratch" (a reproduction-style video)
+  - Hugging Face's reproduction of Chinchilla scaling laws
+  - Any of the "Awesome reproductions" lists on GitHub
+
+  They share:
+    ✓ Specific numbers (not "close to the paper")
+    ✓ Clear diff: what matched, what didn't
+    ✓ Honest explanation of gaps
+    ✓ Code that actually runs
+    ✓ Visual side-by-side with the original
+```
+
+**The typical "gap" you'll find (and why)**:
+
+```
+  Their paper: "We achieved 74.5% accuracy on MMLU."
+  Your run:    "I achieved 68.3% accuracy on MMLU."
+
+  WHY the gap?
+
+  Likely causes (most common first):
+  1. Smaller model (you used 1B, they used 7B).        → rescale + document
+  2. Different training data volume                    → document + note
+  3. Different hyperparameters (unspecified in paper) → guess + document
+  4. Different hardware / precision                    → note it
+  5. Contamination difference (MMLU in their training) → hard to fix
+  6. Evaluation prompt template mismatch              → align templates
+  7. Random seed variance                              → average over 3 seeds
+  8. Bug in your code                                  → debug!
+
+  A good writeup explains each potential cause.
+  Honest gap reporting is more valued than exact matching.
+```
+
+**Celebrating what you learn, not what you 'prove'**:
+
+```
+  Bad outcome to fear:   "I couldn't reproduce X."
+  Better framing:         "I found that reproducing X at 10M scale
+                           gives these numbers [X]. Matches/doesn't match
+                           at my scale. Here's what I'd need to fully
+                           reproduce."
+
+  Bad outcome:            "My method doesn't work."
+  Better framing:         "The technique has sensitivity to [specific HP],
+                           which wasn't in the paper. Future work..."
+
+  Negative results are valuable. Just articulate them clearly.
+```
+
 ## Tips for success
 
 1. **Start small.** If the paper's figure uses 8 models, start with 2. If it uses 1B params, start with 10M.

@@ -133,6 +133,137 @@ The "reasoning" turn (o1 onwards) is significant: inference-time compute matters
 
 For those, watch open-source (Llama, DeepSeek, Qwen papers - they publish more honestly) and inside-baseball blog posts.
 
+## Visualize this
+
+**The GPT family size ladder**:
+
+```
+  Params     Model             Year   Key innovation
+  ────────── ──────────────── ────── ───────────────────────────────
+  117M       GPT-1             2018   pretrain + finetune paradigm
+  345M       BERT-base          2018   bidirectional, encoder-only
+  1.5B       GPT-2              2019   scale + zero-shot
+  175B       GPT-3              2020   scale + few-shot in-context
+  ?          InstructGPT        2022   SFT + RLHF → ChatGPT
+  ?          GPT-4              2023   multimodal, reasoning, MoE?
+  ?          GPT-4o             2024   native voice+vision
+  ?          o1 / o3            2024-  inference-time reasoning
+```
+
+**Parameters over time (log scale)**:
+
+```
+  1e12 │                                                          ●  (GPT-4 ~1T rumored)
+       │
+  1e11 │                                         ●  GPT-3 (175B)
+       │
+  1e10 │                               ●  Llama-2 (70B)
+       │
+  1e9  │                     ●  GPT-2 (1.5B)         ●  Llama-3 (8B)
+       │
+  1e8  │           ●  GPT-1 (117M)
+       │
+  1e7  │ ●
+       └──────────────────────────────────────────────────────── year
+        2017    2018     2019    2020    2021    2022    2023   2024
+
+  Rough trend: 10× params every 2 years (2017-2020).
+  Then slowed: Chinchilla said "more data, not more params".
+  Now: MoE-style scaling continues capacity growth implicitly.
+```
+
+**What each paper DID and DIDN'T do**:
+
+```
+  GPT-1 (2018):
+    ✓ Showed pretrain + finetune beats task-specific arch
+    ✓ 12 transformer decoder layers
+    ✗ Too small to be useful zero-shot (117M)
+
+  GPT-2 (2019):
+    ✓ Showed scale gives zero-shot ability
+    ✓ 1.5B params (10× GPT-1)
+    ✗ Initially withheld - release politics
+    ✗ Still couldn't follow instructions
+
+  GPT-3 (2020):
+    ✓ Showed few-shot in-context learning
+    ✓ 175B params (100× GPT-2)
+    ✗ Still dumb at following instructions
+    ✗ Expensive, undertrained (300B tokens only - Chinchilla error)
+
+  InstructGPT (2022):
+    ✓ Showed SFT + RLHF fixes instruction-following
+    ✓ Basis for ChatGPT (shipped Nov 2022)
+    ✗ Closed: not easy to reproduce
+
+  GPT-4 (2023):
+    ✓ Multimodal (text + images)
+    ✓ Massively better on benchmarks
+    ✗ Architecture undisclosed (rumored MoE, ~1T effective)
+    ✗ No paper, just a "system card"
+
+  o1 series (2024-25):
+    ✓ Inference-time reasoning via long chain-of-thought
+    ✓ Dramatic gains on math, code, science
+    ✗ Very slow and expensive per query
+    ✗ Architecture undisclosed
+```
+
+**The "disclosure cliff"**:
+
+```
+  Openness of OpenAI's work:
+
+  2018  GPT-1      ████████████████ detailed paper, code, weights
+  2019  GPT-2      ██████████████   paper, delayed release, weights
+  2020  GPT-3      ████████████      paper, API only (no weights)
+  2022  InstructGPT ██████             paper, no weights
+  2023  GPT-4      ██                 "system card", no architecture
+  2024  o1         █                   blog post only
+
+  Meanwhile, the open-source world caught up:
+  2023  Llama       ████████████████ paper + weights
+  2024  Llama-3     ████████████████ detailed paper + weights
+  2024  DeepSeek-V3 ████████████████ detailed paper + weights
+  2025  DeepSeek-R1 ████████████████ detailed paper + weights
+
+  Today, open-weight models give better transparency
+  than frontier closed models. Read Llama/DeepSeek papers for methodology.
+```
+
+**Timeline of capability jumps**:
+
+```
+  2018   GPT-1: can do sentiment analysis after finetuning
+  2019   GPT-2: writes coherent essays, kinda
+  2020   GPT-3: few-shot task solving, beats humans on some benchmarks
+  2022   ChatGPT: finally feels like talking to a thing
+  2023   GPT-4: passes bar exam, writes functional code, beats most humans
+  2024   o1: solves PhD-level problems with extended reasoning
+  2025   o3: beats humans on ARC-AGI (a holdout test of fluid reasoning)
+
+  Each release feels like sci-fi came slightly more real.
+```
+
+**What to read if you want to dig deeper into GPT-4-era**:
+
+```
+  Meta (Llama-3 paper, 2024):
+    - Comprehensive 92-page technical report
+    - Data recipe, architecture, training infra, safety
+    - Better than reading GPT-4's "system card" which says nothing
+
+  DeepSeek-V3 (2024):
+    - 55-page paper with architecture + training + infra
+    - MoE details, fp8 training at scale
+    - Best open documentation of a frontier-class run
+
+  DeepSeek-R1 (2025):
+    - 25-page paper on GRPO-style reasoning training
+    - Actual recipe (unlike o1 which is a black box)
+```
+
 ## Exercises
 
 1. Read the abstracts and intros of GPT-1, GPT-2, GPT-3 papers in sequence. Notice the "scale works" narrative building.

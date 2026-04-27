@@ -148,6 +148,169 @@ Claude uses "Constitutional AI" (Bai et al., 2022): the model critiques its own 
 
 The field is active. Expect this landscape to change every 6 months.
 
+## Visualize this
+
+**The three alignment techniques compared**:
+
+```
+  RLHF (Classical, InstructGPT, ChatGPT):
+  ═══════════════════════════════════════
+  Step 1:   Base LLM
+              │
+              ▼
+  Step 2:   SFT  (fine-tune on demos: user prompt → good response)
+              │
+              ▼
+  Step 3:   Collect preference pairs from humans:
+               prompt + response A + response B → which is better?
+              │
+              ▼
+  Step 4:   Train a reward model (RM):
+               input: prompt + response
+               output: scalar "how good?"
+              │
+              ▼
+  Step 5:   PPO: tune policy to maximize RM score (with KL penalty)
+              │
+              ▼
+            Chat model
+
+  PROS: works well, proven at scale.
+  CONS: 3 models (policy, ref, RM), complex, lots of human labels.
+
+
+  DPO (Direct Preference Optimization, 2023):
+  ════════════════════════════════════════════
+  Step 1-2: same as RLHF (base + SFT)
+  Step 3:   Collect preference pairs (same format as RLHF)
+              │
+              ▼
+  Step 4:   DPO loss (no reward model!):
+              L = -log sigmoid(β × [
+                    log π(good|x) - log π_ref(good|x)
+                  - log π(bad|x)  + log π_ref(bad|x)
+                ])
+              │
+              ▼
+            Chat model
+
+  PROS: simpler, cheaper, no RM, stable.
+  CONS: similar quality to RLHF in most studies.
+
+
+  GRPO (DeepSeek, 2024):
+  ══════════════════════
+  Step 1-2: base + SFT
+  Step 3:   Find tasks with verifiable rewards (math, code, format).
+              │
+              ▼
+  Step 4:   For each prompt:
+              sample K responses
+              check correctness programmatically (0 or 1 reward each)
+              compute advantages relative to group mean
+              policy gradient update
+              │
+              ▼
+            Chat model (much better at verifiable tasks)
+
+  PROS: no humans, no RM, works for reasoning.
+  CONS: only works for verifiable domains.
+```
+
+**The InstructGPT result (the basis of ChatGPT)**:
+
+```
+  Human preference rankings (from the paper):
+
+  Which response is better?
+
+     175B GPT-3 (base)         ████████████
+     1.3B InstructGPT (SFT+RLHF) ████████████████████████████
+     6B  InstructGPT             ██████████████████████████████████
+     175B InstructGPT            ████████████████████████████████████████
+
+  Shocking result: a 1.3B InstructGPT beats 175B GPT-3 for most users.
+  → SFT+RLHF is ~100× more valuable than scale for instruction-following.
+```
+
+**RLHF failure modes (why DPO was invented)**:
+
+```
+  1. Reward hacking:
+     Policy finds way to maximize RM without being actually better.
+     E.g. output super long responses that the RM learned to like.
+
+  2. Reward model drift:
+     As policy changes, it produces outputs outside RM's training distribution.
+     RM gives bad scores. Iteratively retrain RM. Slow.
+
+  3. Training instability:
+     PPO is sensitive to hyperparameters. Common loss curves:
+     - Reward goes up, but model becomes less coherent
+     - KL penalty dominates; no learning
+     - Reward oscillates, never converges
+
+  4. Expensive:
+     3 models in memory (policy, reference, RM).
+     Rollouts during PPO (many forward passes).
+```
+
+**DPO training curve (what you'd see)**:
+
+```
+  DPO loss:
+    │●
+    │ ●
+    │  ●●
+    │    ●●●
+    │       ●●●●●●●●●●●    (smooth drop, plateau)
+    └───────────────────── steps
+
+  Accuracy on held-out preferences:
+    │           ●●●●●●●●●●    (goes from ~50% to ~75%)
+    │       ●●●
+    │   ●●
+    │ ●
+    └───────────────────── steps
+```
+
+Fast, stable, simple. Most open-source models 2024+ use DPO.
+
+**GRPO in action (the DeepSeek-R1 surprise)**:
+
+```
+  Training a reasoning model with GRPO on math:
+
+  Step 1:    generate K=64 completions per problem
+  Step 2:    check if answer matches ground truth
+  Step 3:    update policy toward correct completions
+
+  Interesting emergent behaviors:
+    - Model starts using longer reasoning chains on its own (not taught!)
+    - Model spontaneously says "Wait, let me reconsider..."
+    - Model verifies its own work before answering
+    - All without explicit reward for these behaviors
+
+  Net effect: "reasoning" emerges from GRPO on verifiable tasks.
+  Same recipe that OpenAI o1 likely uses.
+```
+
+**When to use each technique**:
+
+```
+  Your task is:
+
+  Creative writing / chat     → SFT + DPO (preferences)
+  Math / code / puzzles        → SFT + GRPO (verifiable)
+  Safety (helpfulness + harm)  → SFT + RLHF or Constitutional AI
+  Specific format compliance   → SFT alone (add format in training data)
+  Personality                  → SFT with identity conversations
+
+  For most products: SFT + DPO covers 90% of needs.
+  For reasoning: add GRPO on top.
+  For alignment: add RLHF or Constitutional AI as a wrapper.
+```
+
 ## Exercises
 
 1. Read [InstructGPT paper](https://arxiv.org/abs/2203.02155) abstract + Figure 1. Internalize the three-stage pipeline.

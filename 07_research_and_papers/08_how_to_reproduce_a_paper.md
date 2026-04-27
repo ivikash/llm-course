@@ -117,6 +117,170 @@ Sometimes a paper just won't reproduce. Could be:
 
 Set a time budget (say, 4 weeks). If you haven't matched within a 2x factor by then, write up what you learned and move on.
 
+## Visualize this
+
+**Reproduction timeline (4 weeks for one figure)**:
+
+```
+  Week 1: UNDERSTAND
+  ───────────────────
+  Mon:  Read paper pass 1 (5 min)
+  Tue:  Read paper pass 2 (1 hour)
+  Wed:  Read paper pass 3 + author's code (3 hours)
+  Thu:  Write reproduction plan: scope, data, metrics, deadline
+  Fri:  Set up environment, test existing nanoGPT baseline
+
+  Week 2: IMPLEMENT
+  ─────────────────
+  Mon-Wed: Implement the modification in nanoGPT/nanochat
+  Thu-Fri: First run at smallest scale. Debug.
+
+  Week 3: EXPERIMENT
+  ──────────────────
+  Mon-Tue: Run the baseline
+  Wed-Thu: Run the modification (one small run first)
+  Fri:     Scale up if looks promising. Or debug if not.
+
+  Week 4: REPORT
+  ──────────────
+  Mon-Tue: Analyze, re-plot, sanity check
+  Wed-Thu: Write up the reproduction
+  Fri:     Publish, tag authors, share
+
+  Optimistic. Budget 2× in reality. Be OK shipping incomplete.
+```
+
+**Good vs bad reproductions**:
+
+```
+  Good reproduction:
+    ✓ Picked a well-defined figure or table
+    ✓ Compared baseline numbers (matched within 2%)
+    ✓ Used same hyperparameters (or explicitly noted differences)
+    ✓ Public repo + writeup
+    ✓ Tagged authors who acknowledged
+    ✓ Revealed something new (or confirmed something old)
+
+  Bad reproduction:
+    ✗ Tried to reproduce the whole paper
+    ✗ Changed methodology mid-way without documenting
+    ✗ "Kind of matches" (vague numbers)
+    ✗ Never published
+    ✗ Didn't acknowledge failures
+```
+
+**Classic reproducibility pitfalls**:
+
+```
+  1. Tokenizer mismatch:
+     Paper used GPT-2 BPE, you used character-level.
+     Your loss numbers differ by huge amounts. Not their fault.
+     Fix: use the same tokenizer.
+
+  2. Data differs:
+     Paper used "our internal corpus".
+     You can't replicate. Use the closest public equivalent.
+     Fix: document the data substitution clearly.
+
+  3. Hyperparameters missing:
+     Paper says "we used AdamW" but doesn't mention β₂, warmup, etc.
+     You guess. Your curve doesn't match.
+     Fix: either find the exact HPs (author's code, reply to their post)
+           or document your guesses.
+
+  4. Seed variance:
+     One seed you ran got different results.
+     Fix: always run 3+ seeds. Report mean ± std.
+
+  5. Float precision:
+     Paper was fp32, you ran bf16. Numerics differ slightly.
+     Fix: match precision if you can.
+
+  6. Silent hardware differences:
+     H100 vs A100 can produce slightly different numerics in some kernels.
+     Fix: document hardware. Comparison should be directional.
+```
+
+**The reproduction report template**:
+
+```markdown
+  # Reproducing [Paper Title] - [Your Figure/Table]
+
+  ## Paper
+  Authors, year, link.
+  Claim being tested: [one sentence].
+
+  ## Setup
+  Engine: nanoGPT / nanochat / custom.
+  Hardware: [your GPU setup].
+  Dataset: [what you used, note differences from paper].
+  Code: [link to your GitHub].
+  Hyperparameters: [table, note any guesses].
+
+  ## Results
+  Their Figure X:  [reproduced or described]
+  My Figure X:     [attached]
+
+  Summary table:
+                     Paper     My run      Diff
+  Metric 1            0.82      0.84       +2.4%
+  Metric 2            0.65      0.62       -4.6%
+  ...
+
+  ## Differences from paper
+  1. Used smaller model (10M vs 1B params): ...
+  2. Used GPT-2 tokenizer instead of theirs: ...
+  3. ...
+
+  ## Interesting observations
+  [Anything surprising.]
+
+  ## Conclusion
+  Claim was [reproduced / partially reproduced / not reproduced].
+  Most likely reasons for any gap: ...
+
+  ## Thanks
+  To [authors] for [explain code / data / reply].
+```
+
+**Why reproductions are valuable**:
+
+```
+  For you:
+    ✓ Deep understanding of one specific technique
+    ✓ Portfolio piece employers/collaborators love
+    ✓ A network with the original authors
+
+  For the field:
+    ✓ Independent verification of claims
+    ✓ Better documentation (your writeup clarifies ambiguities)
+    ✓ Sometimes exposes errors or overclaims
+
+  Famous:
+    - DPO was validated by dozens of reproductions in 2023-24.
+    - Several papers had their core claims refuted via replication.
+    - "Reproducing X" blog posts have launched careers.
+```
+
+**Where to find reproducible papers**:
+
+```
+  1. Papers With Code (paperswithcode.com):
+     Filters to papers with implementations.
+
+  2. HuggingFace Papers (huggingface.co/papers):
+     Papers with released models/datasets.
+
+  3. nanoGPT / nanochat:
+     Karpathy's public research log (`dev/LOG.md`) shows what worked.
+
+  4. DeepSeek, Llama, Qwen papers:
+     Usually include full training recipes.
+
+  5. NeurIPS / ICLR open review:
+     Sometimes reveals more details than the camera-ready version.
+```
+
 ## Exercises
 
 1. Pick a paper from the list above. Write a one-page reproduction plan: scope, data, hyperparameters, timeline, success criteria.

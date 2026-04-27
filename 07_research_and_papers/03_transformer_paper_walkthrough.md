@@ -159,6 +159,130 @@ Things this paper got **right** and are still used:
 3. **Generality**: the same architecture works for translation, text generation, vision, audio, code, etc. The transformer is the new default for sequence modeling.
 4. **Framework-defining**: every LLM since is incrementally changing pieces of this recipe.
 
+## Visualize this
+
+**The famous Figure 1 of the paper, described**:
+
+```
+                    Transformer architecture (Vaswani 2017)
+
+  ┌─────────────────────────────┐         ┌─────────────────────────────┐
+  │         Encoder              │         │         Decoder              │
+  │                              │         │                              │
+  │   ┌────────────┐             │         │   ┌─────────────┐            │
+  │   │ Multi-Head │             │         │   │ Masked MHA  │            │
+  │   │ Attention  │             │         │   │             │            │
+  │   └──────┬─────┘             │         │   └──────┬──────┘            │
+  │          │                   │         │          │                   │
+  │   Add & Norm                 │         │   Add & Norm                 │
+  │          │                   │         │          │                   │
+  │   ┌──────▼─────┐             │         │   ┌──────▼──────┐            │
+  │   │ Feed-      │             │         │   │ MHA         │            │
+  │   │ Forward    │             │         │   │ over encoder│ ◀──────────┘
+  │   └──────┬─────┘             │         │   └──────┬──────┘   (cross-attn)
+  │          │                   │         │          │
+  │   Add & Norm                 │         │   Add & Norm
+  │          │                   │         │          │
+  │   ────── × N layers ─────    │         │   ┌──────▼──────┐
+  │                              │         │   │ Feed-Forward│
+  └──────────┬───────────────────┘         │   └──────┬──────┘
+             │                             │          │
+             │                             │   Add & Norm
+             └─────────────────────────────┘          │
+                                              ────── × N layers ─────
+                                                        │
+                                                        ▼
+                                                    Linear + Softmax
+                                                        │
+                                                        ▼
+                                                    Output probabilities
+
+  Notes:
+    - Encoder: bidirectional self-attention (no mask)
+    - Decoder: causal self-attention + cross-attention to encoder
+    - For translation: encoder reads English, decoder generates French
+    - For GPT: we use only the decoder side, no cross-attention
+```
+
+**Side-by-side with nanoGPT**:
+
+```
+  Original transformer               nanoGPT (decoder-only, simplified)
+  ────────────────────────           ──────────────────────────────
+
+  Section 3.1 (attention)            model.py class CausalSelfAttention
+  Attention(Q,K,V) = softmax(QK^T/√d)V
+                                     att = (q @ k.transpose(-2, -1)) / math.sqrt(d)
+                                     att = att.masked_fill(mask, -inf)
+                                     att = F.softmax(att, -1)
+                                     y = att @ v
+
+  Section 3.2.2 (Multi-Head)          class CausalSelfAttention (reshape/split)
+  h heads in parallel, concat
+
+  Section 3.3 (FFN)                  class MLP
+  FFN(x) = max(0, xW₁+b₁)W₂+b₂      c_fc → GELU (vs ReLU) → c_proj
+
+  Section 3.4 (embeddings)           self.transformer.wte
+  token embedding × √d
+
+  Section 3.5 (pos encoding)         self.transformer.wpe
+  sinusoidal (fixed)                 LEARNED position embedding (different!)
+
+  Section 5.4 (label smoothing)      not used in nanoGPT
+```
+
+Open the paper PDF and `nanoGPT/model.py` side by side. Read Section 3.2.1 ("Scaled Dot-Product Attention") while looking at `CausalSelfAttention.forward`. They match equation-by-line.
+
+**What the paper gets right (still relevant)**:
+
+```
+  ✓ Multi-head attention (modern LLMs all use it)
+  ✓ Residual connections + LayerNorm (with pre-norm variant now)
+  ✓ Position encoding (though RoPE replaced sinusoidal)
+  ✓ Stacked layers (N=6 then, N=96 for GPT-3)
+  ✓ Warmup + inverse-sqrt LR schedule (cosine decay is modern variant)
+  ✓ Adam optimizer (AdamW is modern variant)
+```
+
+**What has changed since 2017**:
+
+```
+  ✗ Post-norm → pre-norm (more stable at depth)
+  ✗ ReLU → GELU → SwiGLU
+  ✗ LayerNorm → RMSNorm
+  ✗ Sinusoidal → learned → RoPE
+  ✗ Encoder-decoder → decoder-only (for LLMs)
+  ✗ MHA → GQA (at scale)
+  ✗ Label smoothing → not always used
+  ✗ Small scale (6 layers, 512 dim) → massive scale
+```
+
+5-7 architectural details have shifted. The core idea (attention + stacks) is untouched.
+
+**The figure count**:
+
+```
+  The paper has 5 figures:
+
+  Figure 1: The architecture (shown above)
+  Figure 2: Scaled dot-product and multi-head attention
+  Figure 3: Attention visualization on a sample sentence
+  Figure 4: Attention heads from different layers
+  Figure 5: (not exists - there are 4 figures)
+
+  Figure 1 is the "headline". If you only study one figure, study it.
+```
+
+**Reproducing their results is tractable now**:
+
+In 2017, the paper's 8× P100s took ~12 hours for the base model. Today:
+- nanoGPT: same architecture, 10 minutes on 1× A100 (Shakespeare).
+- HuggingFace transformers: 3-line code load of Vaswani's pretrained weights.
+- Modern GPUs: 50-100× faster for the same computation.
+
+The paper's experiments are reproducible on a laptop in minutes. Worth doing.
+
 ## Exercises
 
 1. Read sections 3.1 through 3.4 carefully with `nanoGPT/model.py` open. Match each equation to lines of code.

@@ -177,6 +177,170 @@ Many great ideas are shared via:
 
 None of these go through peer review. All of them can be more influential than a NeurIPS paper. Choose your medium.
 
+## Visualize this
+
+**Paper structure mapped to effort**:
+
+```
+  Writing a paper takes ~200 hours of pure effort over 2-6 months.
+  Distribution:
+
+  ┌────────────────────────────────────────┐
+  │ 40%  Running experiments                 │████████████████
+  │ 25%  Refining figures                    │██████████
+  │ 15%  Writing / rewriting prose            │██████
+  │ 10%  Polishing / formatting              │████
+  │ 5%   Submitting, rebuttals               │██
+  │ 5%   Related work search                 │██
+  └────────────────────────────────────────┘
+
+  Surprise: figures take more time than writing.
+  First figure draft → final figure = 20+ iterations.
+```
+
+**Paper structure template**:
+
+```
+  ┌──────────────────────────────────────────────────┐
+  │ Title (12 words, specific)                         │
+  ├──────────────────────────────────────────────────┤
+  │ Abstract (150-250 words)                           │
+  │ ├─ Problem statement (1-2 sentences)               │
+  │ ├─ Approach (1 sentence)                           │
+  │ ├─ Key result (1-2 sentences, quantified)          │
+  │ └─ Impact (1 sentence)                             │
+  ├──────────────────────────────────────────────────┤
+  │ 1. Introduction (1-1.5 pages)                      │
+  │ ├─ What problem                                    │
+  │ ├─ Why important                                   │
+  │ ├─ Why prior approaches insufficient               │
+  │ ├─ Our approach, in brief                          │
+  │ └─ Contributions (bulleted, specific)              │
+  ├──────────────────────────────────────────────────┤
+  │ 2. Related Work (0.5-1 page)                       │
+  ├──────────────────────────────────────────────────┤
+  │ 3. Method (2-4 pages)                              │
+  │ └─ complete enough to reproduce                    │
+  ├──────────────────────────────────────────────────┤
+  │ 4. Experiments (3-5 pages)                         │
+  │ ├─ Setup, datasets, baselines                       │
+  │ ├─ Main result (headline figure)                   │
+  │ ├─ Ablations                                        │
+  │ └─ Analysis                                         │
+  ├──────────────────────────────────────────────────┤
+  │ 5. Discussion & Limitations (0.5 page)             │
+  ├──────────────────────────────────────────────────┤
+  │ 6. Conclusion (0.5 page)                           │
+  ├──────────────────────────────────────────────────┤
+  │ References                                          │
+  │ Appendix (experiments, extra details)               │
+  └──────────────────────────────────────────────────┘
+
+  Standard conference: 8 pages main + unlimited appendix.
+  Total ~20-30 pages with appendix.
+```
+
+**A great Figure 1 (the "headline figure")**:
+
+```
+  Rules:
+    - Self-contained (caption explains everything)
+    - Single clear message
+    - Not cluttered
+    - Uses color sparingly, purposefully
+    - Legible at printed size
+
+  Examples of iconic headline figures:
+    - Transformer paper: the architecture diagram
+    - Chinchilla: the isoFLOP U-curve
+    - Kaplan: the scaling law straight line on log-log
+    - LoRA: the "adapter" parallel to base weight diagram
+
+  Invest 10% of paper time on Figure 1. It's the 80% signal.
+```
+
+**The abstract as a recipe**:
+
+```
+  ┌─────────────────────────────────────────────────┐
+  │ [Problem setup, 2 sentences]                    │
+  │                                                  │
+  │ Recent advances in X have enabled Y, but are    │
+  │ limited by Z.                                   │
+  │                                                  │
+  │ [Approach, 2 sentences]                         │
+  │                                                  │
+  │ In this work, we propose METHOD, which          │
+  │ addresses Z by KEY_IDEA. METHOD works by ...    │
+  │                                                  │
+  │ [Results, 2 sentences, with numbers]            │
+  │                                                  │
+  │ METHOD achieves 15% improvement on BENCHMARK    │
+  │ and is 3× faster than the previous SOTA.         │
+  │                                                  │
+  │ [Implication, 1 sentence]                       │
+  │                                                  │
+  │ Our findings suggest that FUTURE_IMPLICATION.   │
+  └─────────────────────────────────────────────────┘
+```
+
+**The rebuttal pattern**:
+
+```
+  Reviewer comment:                    Your response:
+  ─────────────────                    ──────────────
+
+  "The paper claims X but doesn't     "Thank you for the suggestion. We've
+  compare against Y."                   added a comparison in Appendix B,
+                                         which shows our method outperforms Y."
+
+  "The writing is unclear in §3."     "We've rewritten §3 to improve
+                                         clarity. See new version."
+
+  "Significance is unclear."          "We added §1.4 motivating the impact:
+                                         this method enables X application
+                                         previously infeasible."
+
+  Pattern: acknowledge, explain, fix. Don't argue.
+```
+
+**Where to publish**:
+
+```
+  Your research type:                   Best venue:
+  ──────────────────                   ───────────────
+  Novel theoretical insight            NeurIPS / ICML
+  Novel LLM technique                  ICLR / NeurIPS
+  Engineering improvement              arXiv, workshop papers
+  Reproduction                         blog post, arXiv
+  Negative results                     workshop, blog post
+  Industry application                 blog post, tech report
+  
+  For career: conferences = credentials (academia, research roles).
+  For impact: blog posts / Twitter = higher reach (industry).
+  
+  Karpathy: mostly writes blogs/code. No papers in years. Lots of impact.
+  Hinton, LeCun: heavy conference publishers.
+  Both paths are valid.
+```
+
+**The "industrial alternative" to papers**:
+
+```
+  Paper                              Alternative artifacts
+  ──────                              ─────────────────────
+  Published paper                    GitHub repo + README
+  Workshop short paper               Blog post
+  Tech report                        Twitter thread
+  Thesis                              Long-form essay
+  
+  Often the alternatives have MORE IMPACT than formal papers.
+  Karpathy's blog > most NeurIPS papers.
+  3Blue1Brown's videos > any paper on visualization.
+
+  The academic hierarchy is 30 years old. The internet is faster.
+```
+
 ## Exercises
 
 1. Open a paper you admire. Study its figure 1 for 10 minutes. What's the message? How do visual choices support it?
